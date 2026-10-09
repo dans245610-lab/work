@@ -69,7 +69,7 @@ for entry in "${CLIPS[@]}"; do
     piece="$TMP/${name}_$i.mp4"
     ffmpeg -hide_banner -loglevel error -y -ss "$a" -i "$SRC/$file" -t $((b - a)) \
       -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
-      -c:a aac -b:a 192k -ar 48000 -ac 2 "$piece"
+      -c:a aac -b:a 192k -ar 48000 -ac 2 -sn "$piece"
     echo "file '$piece'" >>"$list"; i=$((i + 1))
   done
   ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i "$list" -c copy "$OUT/$name.mp4"
@@ -77,7 +77,7 @@ for entry in "${CLIPS[@]}"; do
   if [ "$VERTICAL" = "1" ]; then
     ffmpeg -hide_banner -loglevel error -y -i "$OUT/$name.mp4" -filter_complex \
       "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=30:5[bg];[0:v]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2" \
-      -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -c:a copy "$OUT/${name}_9x16.mp4"
+      -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -c:a copy -sn "$OUT/${name}_9x16.mp4"
   fi
 done
 
