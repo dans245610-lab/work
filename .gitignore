@@ -4,3 +4,6 @@ node_modules/
 apco-rate-video/out/individual_mov/
 apco-rate-video/out/zipbuild/
 apco-rate-video/out/v2/
+apco-rate-video/clips_green/
+apco-rate-video/out/capcut/
+apco-rate-video/out/*.zip

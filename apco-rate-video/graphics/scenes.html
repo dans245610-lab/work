@@ -126,34 +126,25 @@ const SCENES = [
   {
     id: '02_apco_bills_up', start: 9.1, end: 21.4,
     build(st) {
-      this.a = st.appendChild(h(`<div class="card" style="top:1120px;--accent:var(--cool)">
+      this.a = st.appendChild(h(`<div class="card" style="top:1120px">
         <div class="kicker">Meanwhile in SW Virginia</div>
         <div class="h2">Appalachian Power</div>
         <div class="sub" style="margin-top:12px">Virginia's 2nd-largest utility monopoly</div>
       </div>`));
-      this.b = st.appendChild(h(`<div class="card" style="top:1120px;--accent:var(--hot)">
+      this.b = st.appendChild(h(`<div class="card" style="top:1120px">
         <div class="kicker">APCo customers</div>
-        <div class="row" style="align-items:flex-end">
-          <div class="h1">Your bill</div>
-          <svg width="150" height="150" viewBox="0 0 100 100" style="margin-left:6px">
-            <path id="arrow" d="M10 85 L40 55 L58 70 L88 30" fill="none" stroke="#ff4d4d" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
-            <path id="head" d="M66 28 L90 28 L90 52" fill="none" stroke="#ff4d4d" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
-          </svg>
-        </div>
-        <div class="h1 hot">could go up again</div>
-        <div class="sub" style="margin-top:22px">≈ <b class="volt" id="m">+$0.00</b>/mo for a typical home</div>
-        <div class="src">APCo estimate at 1,000 kWh/mo, net of securitization savings · Case PUR-2026-00044</div>
+        <div class="h2">Your monthly bill could go up</div>
+        <div class="h1 volt" style="font-size:190px;line-height:1;margin:18px 0 6px" id="m">+$0.00</div>
+        <div class="h3">more per month</div>
+        <div class="sub" style="font-size:28px;margin-top:22px;line-height:1.35">Source: Appalachian Power's rate filing, Va. SCC Case PUR-2026-00044 (typical home, 1,000 kWh/mo)</div>
       </div>`));
-      this.arrow = this.b.querySelector('#arrow'); this.head = this.b.querySelector('#head'); this.m = this.b.querySelector('#m');
+      this.m = this.b.querySelector('#m');
     },
     update(t, D) {
       pop(this.a, t, 0, 5.4);
       const s = 7.4;  // "if Appalachian Power Company is your electric provider"
       pop(this.b, t, s, D - .3);
-      const a = easeInOut(prog(t, s + .3, .8));
-      this.arrow.style.strokeDashoffset = 1 - a;
-      this.head.style.opacity = prog(t, s + 1.0, .2);
-      this.m.textContent = '+$' + money(9.10 * easeOut(prog(t, s + 2.4, 1.2)), 2);
+      this.m.textContent = '+$' + money(9.10 * easeOut(prog(t, s + .5, 1.4)), 2);
     }
   },
   {
