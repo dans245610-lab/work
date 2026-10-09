@@ -1,0 +1,376 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>APCo Rate Case Graphics</title>
+<style>
+  :root {
+    --ink: #0d1726;
+    --ink-2: #16243a;
+    --paper: #ffffff;
+    --muted: #a9b6c9;
+    --volt: #ffd23f;     /* electric yellow accent */
+    --hot: #ff4d4d;      /* increases / bad news */
+    --cool: #4dd8ff;     /* neutral data */
+    --ok: #3ddc84;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  body { font-family: "Inter", "DejaVu Sans", sans-serif; color: var(--paper); -webkit-font-smoothing: antialiased; }
+  body.preview { background: #5b6470; }
+  #stage { position: absolute; inset: 0; }
+  .abs { position: absolute; }
+  .disp { font-family: "Inter Display", "Inter", sans-serif; }
+
+  /* Card: lower band, clear of face (top) and app UI (right rail / bottom) */
+  .card {
+    position: absolute; left: 60px; width: 880px;
+    background: linear-gradient(160deg, rgba(22,36,58,.96), rgba(13,23,38,.96));
+    border-radius: 34px; padding: 40px 48px 44px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.45), inset 0 0 0 2px rgba(255,255,255,.07);
+    overflow: hidden;
+  }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 12px; background: var(--accent, var(--volt)); }
+  .kicker {
+    display: inline-block; font-weight: 800; font-size: 30px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink); background: var(--accent, var(--volt)); padding: 8px 18px 7px; border-radius: 10px; margin-bottom: 22px;
+  }
+  .h1 { font-family: "Inter Display", "Inter", sans-serif; font-weight: 900; font-size: 96px; line-height: .98; letter-spacing: -.02em; }
+  .h2 { font-family: "Inter Display", "Inter", sans-serif; font-weight: 800; font-size: 64px; line-height: 1.04; letter-spacing: -.01em; }
+  .h3 { font-weight: 700; font-size: 44px; line-height: 1.15; }
+  .sub { font-weight: 500; font-size: 36px; line-height: 1.3; color: var(--muted); }
+  .src { font-weight: 500; font-size: 22px; color: #7f8ea5; margin-top: 18px; letter-spacing: .02em; }
+  .volt { color: var(--volt); } .hot { color: var(--hot); } .cool { color: var(--cool); }
+  .row { display: flex; align-items: center; gap: 24px; }
+  .chip {
+    display: flex; align-items: center; gap: 22px; padding: 24px 30px; border-radius: 22px;
+    background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+    font-weight: 700; font-size: 46px; margin-top: 18px;
+  }
+  .chip .ico { font-size: 54px; width: 64px; text-align: center; }
+  .emoji { font-family: "Noto Color Emoji", sans-serif; }
+  .bar-track { position: relative; height: 92px; border-radius: 18px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 18px; }
+  .bar-label { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 0 12px; }
+  .step { display: flex; gap: 26px; align-items: center; padding: 18px 0; border-top: 2px solid rgba(255,255,255,.08); }
+  .step:first-of-type { border-top: 0; }
+  .num {
+    flex: 0 0 72px; height: 72px; border-radius: 50%; display: grid; place-items: center;
+    font-family: "Inter Display", sans-serif; font-weight: 900; font-size: 38px; background: rgba(255,255,255,.1); color: var(--paper);
+  }
+  .step.on .num { background: var(--volt); color: var(--ink); }
+  .step .t { font-weight: 700; font-size: 40px; line-height: 1.15; }
+  .step .t small { display: block; font-weight: 500; font-size: 28px; color: var(--muted); margin-top: 4px; }
+  .mono { font-family: "DejaVu Sans Mono", monospace; }
+  .stamp {
+    position: absolute; font-family: "Inter Display", sans-serif; font-weight: 900; font-size: 120px; letter-spacing: .04em;
+    color: var(--hot); border: 12px solid var(--hot); border-radius: 22px; padding: 6px 34px 0; text-transform: uppercase;
+    mix-blend-mode: normal; background: rgba(13,23,38,.35);
+  }
+  .cal {
+    width: 380px; border-radius: 28px; overflow: hidden; background: var(--paper); color: var(--ink); text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .cal .m { background: var(--hot); color: #fff; font-weight: 900; font-size: 44px; letter-spacing: .14em; padding: 14px 0 10px; }
+  .cal .d { font-family: "Inter Display", sans-serif; font-weight: 900; font-size: 170px; line-height: 1; padding: 14px 0 0; }
+  .cal .l { font-weight: 800; font-size: 32px; padding: 6px 0 24px; text-transform: uppercase; letter-spacing: .06em; }
+  .url {
+    display: inline-block; font-weight: 800; font-size: 64px; letter-spacing: -.01em; padding: 18px 30px; border-radius: 20px;
+    background: var(--paper); color: var(--ink);
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+/* ---------- timing helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, s, d) => clamp((t - s) / d);
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const easeBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+
+/* in/out envelope for an element: rises in at `s`, leaves at `e` (local seconds) */
+function pop(el, t, s, e = Infinity, { dy = 50, scale = .94, inDur = .45, outDur = .3 } = {}) {
+  const i = easeBack(prog(t, s, inDur));
+  const o = easeInOut(prog(t, e, outDur));
+  const op = clamp(prog(t, s, inDur * .7)) * (1 - o);
+  el.style.opacity = op;
+  el.style.transform = `translateY(${lerp(dy, 0, i) - o * 30}px) scale(${lerp(scale, 1, i)})`;
+}
+const h = (html) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; };
+const money = (v, dec = 0) => v.toFixed(dec);
+
+/* ---------- scenes ----------
+   start/end are absolute seconds in the edit (from the SRT). Each clip renders
+   from start-0.15s so the in-animation lands on the spoken word.            */
+const SCENES = [
+  {
+    id: '01_merger', start: 1.0, end: 6.9,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1120px">
+        <div class="kicker">Headline</div>
+        <div class="h2">Dominion Energy</div>
+        <div class="h1 volt" style="font-size:150px;margin:8px 0 4px"><span id="n">$0</span> BILLION</div>
+        <div class="h3">takeover by <span class="cool">NextEra Energy</span></div>
+        <div class="src">Deal announced May 18, 2026 · all-stock</div>
+      </div>`));
+      this.n = this.c.querySelector('#n');
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      this.n.textContent = '$' + Math.round(67 * easeOut(prog(t, .5, 1.6)));
+    }
+  },
+  {
+    id: '02_apco_bills_up', start: 9.1, end: 21.4,
+    build(st) {
+      this.a = st.appendChild(h(`<div class="card" style="top:1120px;--accent:var(--cool)">
+        <div class="kicker">Meanwhile in SW Virginia</div>
+        <div class="h2">Appalachian Power</div>
+        <div class="sub" style="margin-top:12px">Virginia's 2nd-largest utility monopoly</div>
+      </div>`));
+      this.b = st.appendChild(h(`<div class="card" style="top:1120px;--accent:var(--hot)">
+        <div class="kicker">APCo customers</div>
+        <div class="row" style="align-items:flex-end">
+          <div class="h1">Your bill</div>
+          <svg width="150" height="150" viewBox="0 0 100 100" style="margin-left:6px">
+            <path id="arrow" d="M10 85 L40 55 L58 70 L88 30" fill="none" stroke="#ff4d4d" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+            <path id="head" d="M66 28 L90 28 L90 52" fill="none" stroke="#ff4d4d" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+          </svg>
+        </div>
+        <div class="h1 hot">could go up again</div>
+        <div class="sub" style="margin-top:22px">≈ <b class="volt" id="m">+$0.00</b>/mo for a typical home</div>
+        <div class="src">APCo estimate at 1,000 kWh/mo, net of securitization savings · Case PUR-2026-00044</div>
+      </div>`));
+      this.arrow = this.b.querySelector('#arrow'); this.head = this.b.querySelector('#head'); this.m = this.b.querySelector('#m');
+    },
+    update(t, D) {
+      pop(this.a, t, 0, 5.4);
+      const s = 7.4;  // "if Appalachian Power Company is your electric provider"
+      pop(this.b, t, s, D - .3);
+      const a = easeInOut(prog(t, s + .3, .8));
+      this.arrow.style.strokeDashoffset = 1 - a;
+      this.head.style.opacity = prog(t, s + 1.0, .2);
+      this.m.textContent = '+$' + money(9.10 * easeOut(prog(t, s + 2.4, 1.2)), 2);
+    }
+  },
+  {
+    id: '03_their_reasons', start: 21.4, end: 28.5,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">APCo's justification</div>
+        <div class="chip" id="c1"><span class="ico emoji">📈</span>Inflation</div>
+        <div class="chip" id="c2"><span class="ico emoji">⛈️</span>Storm recovery costs</div>
+        <div class="chip" id="c3"><span class="ico emoji">🏦</span>Higher capital costs</div>
+      </div>`));
+      this.chips = ['#c1', '#c2', '#c3'].map(q => this.c.querySelector(q));
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      // "including inflation (2.9) storm recovery (3.7) ... and higher capital costs (5.4)"
+      [2.9, 3.7, 5.4].forEach((s, i) => pop(this.chips[i], t, s, Infinity, { dy: 30, scale: .9 }));
+    }
+  },
+  {
+    id: '04_elephant', start: 28.4, end: 35.3,
+    build(st) {
+      this.a = st.appendChild(h(`<div class="card" style="top:1120px;text-align:center">
+        <div class="emoji" style="font-size:150px;line-height:1.1">🐘</div>
+        <div class="h2">The elephant in the room</div>
+      </div>`));
+      this.b = st.appendChild(h(`<div class="card" style="top:1120px">
+        <div class="kicker">What nobody's talking about</div>
+        <div class="h1 volt" style="font-size:140px">PROFIT</div>
+        <div class="h3" style="margin-top:14px">Fixed &amp; <u style="text-decoration-color:var(--volt);text-underline-offset:10px">guaranteed</u> by the state</div>
+      </div>`));
+    },
+    update(t, D) {
+      pop(this.a, t, 1.6, 3.3);
+      pop(this.b, t, 3.4, D - .3);
+    }
+  },
+  {
+    id: '05_what_is_roe', start: 35.7, end: 44.4,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">Explainer</div>
+        <div class="h1">Return on <span class="volt">Equity</span></div>
+        <div class="h3 cool" style="margin:6px 0 20px">(ROE)</div>
+        <div class="sub">The profit rate regulators let a utility earn for its shareholders — built into your bill.</div>
+        <div id="d" class="chip" style="--x:0;background:rgba(255,77,77,.14);box-shadow:inset 0 0 0 2px rgba(255,77,77,.5);font-size:40px">
+          <span class="ico emoji">⚠️</span><span>One of the biggest drivers of rising bills in Virginia</span>
+        </div>
+      </div>`));
+      this.d = this.c.querySelector('#d');
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      pop(this.d, t, 4.3, Infinity, { dy: 30 });
+    }
+  },
+  {
+    id: '06_bill_died', start: 44.2, end: 58.8,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">Last legislative session</div>
+        <div class="h2">SW Virginia lawmakers tried to rein in utility profits</div>
+        <div class="row" id="vs" style="margin-top:34px;gap:20px">
+          <div class="chip" style="margin:0;font-size:38px"><span class="ico emoji">📜</span>The bill</div>
+          <div class="h3 hot">vs.</div>
+          <div class="chip" style="margin:0;font-size:38px"><span class="ico emoji">💼</span>Utility lobby</div>
+        </div>
+      </div>`));
+      this.vs = this.c.querySelector('#vs');
+      this.s = st.appendChild(h(`<div class="stamp" style="left:210px;top:1400px">Bill died</div>`));
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      pop(this.vs, t, 7.2, Infinity, { dy: 30 });   // "challenging utilities' profit"
+      // stamp slam at "so ultimately the bill died" (~56.2 abs)
+      const s = 12.0, p = prog(t, s, .28);
+      const o = 1 - easeInOut(prog(t, D - .3, .3));
+      this.s.style.opacity = (p > 0 ? 1 : 0) * o;
+      this.s.style.transform = `rotate(-10deg) scale(${lerp(2.4, 1, easeOut(p))})`;
+    }
+  },
+  {
+    id: '07_roe_bars', start: 59.1, end: 76.6,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:880px">
+        <div class="kicker">APCo's profit rate (ROE)</div>
+        <div class="bar-label"><span class="h3">Authorized now</span><span class="h2 cool" id="v1">0.00%</span></div>
+        <div class="bar-track"><div class="bar-fill" id="b1" style="background:var(--cool)"></div></div>
+        <div id="r2">
+          <div class="bar-label"><span class="h3">APCo is asking for</span><span class="h2 hot" id="v2">9.75%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="b2" style="background:var(--hot)"></div></div>
+        </div>
+        <div id="foot" class="chip" style="font-size:38px;margin-top:30px"><span class="ico emoji">💸</span>
+          <span>Small % — <span class="volt">big long-term impact</span> on what customers pay</span></div>
+        <div class="src">Total base-rate increase requested: ~$61.4M/yr · Case PUR-2026-00044</div>
+      </div>`));
+      ['v1', 'v2', 'b1', 'b2', 'r2', 'foot'].forEach(k => this[k] = this.c.querySelector('#' + k));
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      // bars scaled so 0–12% fills the track (keeps the difference honest-ish but visible)
+      const W = x => (x / 12 * 100) + '%';
+      const a = easeOut(prog(t, .6, 1.4));
+      this.v1.textContent = (9.75 * a).toFixed(2) + '%'; this.b1.style.width = W(9.75 * a);
+      const s2 = 7.8; // "asking to increase that to 10.5%"
+      pop(this.r2, t, s2, Infinity, { dy: 30 });
+      const b = easeInOut(prog(t, s2 + 1.2, 1.2));
+      const v = lerp(9.75, 10.5, b);
+      this.v2.textContent = v.toFixed(2) + '%'; this.b2.style.width = W(v);
+      pop(this.foot, t, 11.3, Infinity, { dy: 30 });
+    }
+  },
+  {
+    id: '08_weigh_in', start: 76.5, end: 83.7,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1120px;--accent:var(--ok)">
+        <div class="kicker">Good news</div>
+        <div class="h1">It's not too late to <span style="color:var(--ok)">weigh in</span></div>
+        <div class="row" id="home" style="margin-top:24px"><span class="emoji" style="font-size:64px">🏠</span><span class="h3">From the comfort of your own home</span></div>
+      </div>`));
+      this.home = this.c.querySelector('#home');
+    },
+    update(t, D) { pop(this.c, t, 0, D - .3); pop(this.home, t, 4.5, Infinity, { dy: 30 }); }
+  },
+  {
+    id: '09_hearing_by_phone', start: 83.6, end: 88.8,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">Public testimony · by phone</div>
+        <div class="row" style="gap:40px;align-items:center">
+          <div class="cal" id="cal"><div class="m">OCT</div><div class="d">19</div><div class="l">10:00 AM</div></div>
+          <div>
+            <div class="emoji" style="font-size:90px">📞</div>
+            <div class="h3" style="margin-top:8px">Virginia <span class="volt">SCC</span> takes your call</div>
+            <div class="sub" style="font-size:28px;margin-top:10px">State Corporation Commission</div>
+          </div>
+        </div>
+      </div>`));
+      this.cal = this.c.querySelector('#cal');
+    },
+    update(t, D) { pop(this.c, t, 0, D - .3); pop(this.cal, t, 2.9, Infinity, { dy: 0, scale: .6 }); }
+  },
+  {
+    id: '10_how_to_sign_up', start: 88.7, end: 111.0,
+    build(st) {
+      const steps = [
+        ['Go to <span class="volt">scc.virginia.gov</span>', ''],
+        ['<b>Cases</b> tab', '→ Participating in SCC Cases'],
+        ['Scroll to', '“Testifying by Telephone”'],
+        ['Open the', 'Public Witness Appearance Form'],
+        ['Enter case #', 'plus your name &amp; phone number'],
+      ];
+      this.c = st.appendChild(h(`<div class="card" style="top:860px;padding-bottom:30px">
+        <div class="kicker">How to sign up</div>
+        ${steps.map((s, i) => `<div class="step" id="s${i}"><div class="num">${i + 1}</div><div class="t">${s[0]}<small>${s[1]}</small></div></div>`).join('')}
+        <div id="case" style="margin-top:14px;text-align:center"><span class="url mono" style="font-size:66px">PUR-2026-00044</span></div>
+      </div>`));
+      this.steps = steps.map((_, i) => this.c.querySelector('#s' + i));
+      this.case = this.c.querySelector('#case');
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      // abs cues: 88.8 site · 94.2 cases tab · 97.8 scroll · 101.2 form · 103.1 case #
+      const cues = [.2, 5.5, 9.1, 12.5, 14.4];
+      cues.forEach((s, i) => {
+        pop(this.steps[i], t, s, Infinity, { dy: 24, scale: .97 });
+        const next = cues[i + 1] ?? Infinity;
+        this.steps[i].classList.toggle('on', t >= s && t < next + 0.0);
+      });
+      pop(this.case, t, 15.6, Infinity, { dy: 20, scale: .7 });
+    }
+  },
+  {
+    id: '11_deadline_cta', start: 111.4, end: 122.6,
+    build(st) {
+      this.a = st.appendChild(h(`<div class="card" style="top:1120px">
+        <div class="kicker">That's it</div>
+        <div class="row" style="gap:28px"><span class="emoji" style="font-size:110px">📲</span>
+        <div class="h2">The SCC calls <span class="volt">you</span> the morning of Oct. 19</div></div>
+      </div>`));
+      this.b = st.appendChild(h(`<div class="card" style="top:1020px;--accent:var(--hot)">
+        <div class="kicker">Mark your calendar</div>
+        <div class="row" style="gap:36px;justify-content:center">
+          <div class="cal" id="c1" style="width:330px"><div class="m">OCT</div><div class="d">15</div><div class="l">Register by</div></div>
+          <div class="cal" id="c2" style="width:330px"><div class="m" style="background:var(--ink-2)">OCT</div><div class="d">19</div><div class="l">Testify · 10 AM</div></div>
+        </div>
+        <div id="cta" class="h2" style="text-align:center;margin-top:32px">Sign up. <span class="volt">Make your voice heard.</span></div>
+      </div>`));
+      ['c1', 'c2', 'cta'].forEach(k => this[k] = this.b.querySelector('#' + k));
+    },
+    update(t, D) {
+      pop(this.a, t, .9, 5.2);                 // "the SCC will call you..."
+      pop(this.b, t, 5.5, D - .3);             // "the deadline to register is Oct 15"
+      pop(this.c1, t, 5.8, Infinity, { dy: 0, scale: .6 });
+      pop(this.c2, t, 7.6, Infinity, { dy: 0, scale: .6 });
+      pop(this.cta, t, 9.4, Infinity, { dy: 24 });
+    }
+  },
+];
+
+/* ---------- driver API used by render.mjs ---------- */
+let current = null;
+window.SCENES = SCENES.map(s => ({ id: s.id, start: s.start, end: s.end }));
+window.loadScene = (id) => {
+  const st = document.getElementById('stage'); st.innerHTML = '';
+  current = SCENES.find(s => s.id === id); current.build(st);
+};
+window.seek = (t) => current.update(t, current.end - current.start);
+
+/* open scenes.html?scene=07_roe_bars in a browser to scrub/loop a scene */
+const q = new URLSearchParams(location.search);
+if (q.get('scene')) {
+  document.body.classList.add('preview');
+  loadScene(q.get('scene'));
+  const D = current.end - current.start, t0 = performance.now();
+  (function loop() { seek(((performance.now() - t0) / 1000) % D); requestAnimationFrame(loop); })();
+}
+</script>
+</body>
+</html>
