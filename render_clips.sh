@@ -5,6 +5,7 @@
 #   ./render_clips.sh                 # 16:9 clips
 #   VERTICAL=1 ./render_clips.sh      # also make 9:16 versions (blurred background)
 #   SRC="/path/to/segments" ./render_clips.sh
+#   ONLY="^(03|07|08)" ./render_clips.sh   # render only clips whose name matches
 #
 # Timecodes are in/out points inside each segment .mp4 (from the SRTs).
 # Multi-range clips are cut piece by piece and joined in order.
@@ -42,9 +43,9 @@ CLIPS=(
   "04_ten-dollars-stop-the-merger|$S02@00:27-00:54;$S27@04:06-05:33"
   "05_fuel-savings-114B-285B|$S15@01:09-03:37"
   "06_repeal-vcea-doubles-emissions|$S21@00:34-02:34"
-  "07a_pipelines-eminent-domain|$S19@06:11-06:58"
+  "07a_pipelines-eminent-domain|$S19@05:26.4-06:57.5"
   "07b_nine-cumberland-gas-plants|$S13@00:23-01:25"
-  "08a_data-centers-200B|$S12@09:35-10:28"
+  "08a_data-centers-200B|$S12@09:15-10:28"
   "08b_cost-allocation-25pct|$S17@00:09-01:49"
   "09_foskey-affordability-stats|$S27@01:48-03:07"
   "10_pastor-lee-disconnections|$S27@10:50-12:01"
@@ -55,10 +56,11 @@ CLIPS=(
   "15_higgins-ccan|$S27@08:27-10:05"
 )
 
-to_sec() { local IFS=:; read -r m s <<<"$1"; echo $((10#$m * 60 + 10#$s)); }
+to_sec() { awk -F: '{ printf "%.2f", $1 * 60 + $2 }' <<<"$1"; }
 
 for entry in "${CLIPS[@]}"; do
   name="${entry%%|*}"; pieces="${entry#*|}"
+  if [ -n "${ONLY:-}" ] && ! [[ $name =~ $ONLY ]]; then continue; fi
   echo "▶ $name"
   list="$TMP/$name.txt"; : >"$list"; i=0
   IFS=';' read -ra parts <<<"$pieces"
@@ -67,7 +69,7 @@ for entry in "${CLIPS[@]}"; do
     a=$(to_sec "${range%-*}"); b=$(to_sec "${range#*-}")
     [ -f "$SRC/$file" ] || { echo "  missing $file, skipping clip"; continue 2; }
     piece="$TMP/${name}_$i.mp4"
-    ffmpeg -hide_banner -loglevel error -y -ss "$a" -i "$SRC/$file" -t $((b - a)) \
+    ffmpeg -hide_banner -loglevel error -y -ss "$a" -i "$SRC/$file" -t "$(awk -v a="$a" -v b="$b" 'BEGIN{ printf "%.2f", b - a }')" \
       -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
       -c:a aac -b:a 192k -ar 48000 -ac 2 -sn "$piece"
     echo "file '$piece'" >>"$list"; i=$((i + 1))
