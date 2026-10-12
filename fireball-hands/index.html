@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fireball Hands</title>
+<style>
+  :root { --bg: #000; --fg: #ffd9a0; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #wrap { position: relative; width: 100%; height: 100%; }
+  video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  video { filter: brightness(0.8); }
+  #ui { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; z-index: 2; }
+  button { background: #ff6a00; color: #000; border: 0; border-radius: 6px; padding: 10px 16px; font-weight: 600; font-size: 15px; cursor: pointer; }
+  button.secondary { background: rgba(255,255,255,0.15); color: var(--fg); }
+  #status { font-size: 14px; opacity: 0.85; text-shadow: 0 1px 2px #000; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="wrap">
+  <video id="video" playsinline muted></video>
+  <canvas id="fx"></canvas>
+</div></div>
+<div id="ui">
+  <button id="start">Start camera</button>
+  <button id="toggleVideo" class="secondary" hidden>Hide video</button>
+  <span id="status">Allow camera access, then hold up your hands.</span>
+</div>
+
+<script type="module">
+import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("fx");
+const ctx = canvas.getContext("2d");
+const statusEl = document.getElementById("status");
+const startBtn = document.getElementById("start");
+const toggleBtn = document.getElementById("toggleVideo");
+
+const MAX_HANDS = 4;
+const MAX_PARTICLES = 2500;
+
+let landmarker = null;
+let lastVideoTime = -1;
+let particles = [];
+// Smoothed fireball state per tracked hand, matched frame to frame by nearest position.
+let fireballs = [];
+let lastFrame = performance.now();
+
+// ---------- Pre-rendered glow sprite (fast additive particles) ----------
+function makeSprite(size, stops) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  for (const [o, col] of stops) grad.addColorStop(o, col);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  return c;
+}
+const fireSprite = makeSprite(128, [
+  [0, "rgba(255,255,255,1)"],
+  [0.2, "rgba(255,230,140,0.9)"],
+  [0.45, "rgba(255,120,20,0.5)"],
+  [0.75, "rgba(200,30,0,0.15)"],
+  [1, "rgba(120,0,0,0)"],
+]);
+const smokeSprite = makeSprite(128, [
+  [0, "rgba(60,50,45,0.35)"],
+  [0.6, "rgba(40,35,30,0.12)"],
+  [1, "rgba(0,0,0,0)"],
+]);
+
+// ---------- Camera + model ----------
+async function start() {
+  startBtn.disabled = true;
+  statusEl.textContent = "Starting camera…";
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await video.play();
+  } catch (e) {
+    statusEl.textContent = "Camera unavailable: " + e.message;
+    startBtn.disabled = false;
+    return;
+  }
+
+  statusEl.textContent = "Loading hand tracker…";
+  const fileset = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  const opts = {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      delegate: "GPU",
+    },
+    runningMode: "VIDEO",
+    numHands: MAX_HANDS,
+    minHandDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  };
+  try {
+    landmarker = await HandLandmarker.createFromOptions(fileset, opts);
+  } catch {
+    opts.baseOptions.delegate = "CPU";
+    landmarker = await HandLandmarker.createFromOptions(fileset, opts);
+  }
+
+  startBtn.hidden = true;
+  toggleBtn.hidden = false;
+  statusEl.textContent = "Hold up your hands 🔥";
+  requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener("click", start);
+toggleBtn.addEventListener("click", () => {
+  const hidden = video.style.visibility === "hidden";
+  video.style.visibility = hidden ? "visible" : "hidden";
+  toggleBtn.textContent = hidden ? "Hide video" : "Show video";
+});
+
+// ---------- Geometry: map normalized landmarks to canvas pixels (object-fit: cover) ----------
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(canvas.clientWidth * dpr);
+  canvas.height = Math.round(canvas.clientHeight * dpr);
+}
+window.addEventListener("resize", resize);
+resize();
+
+function toCanvas(nx, ny) {
+  const vw = video.videoWidth || 1, vh = video.videoHeight || 1;
+  const scale = Math.max(canvas.width / vw, canvas.height / vh);
+  const dw = vw * scale, dh = vh * scale;
+  return { x: (canvas.width - dw) / 2 + nx * dw, y: (canvas.height - dh) / 2 + ny * dh };
+}
+
+function handToFireball(lm) {
+  // Palm centre: wrist + base of each finger.
+  const ids = [0, 5, 9, 13, 17];
+  let nx = 0, ny = 0;
+  for (const i of ids) { nx += lm[i].x; ny += lm[i].y; }
+  const p = toCanvas(nx / ids.length, ny / ids.length);
+  // Hand size: wrist to middle-finger base.
+  const a = toCanvas(lm[0].x, lm[0].y), b = toCanvas(lm[9].x, lm[9].y);
+  const size = Math.hypot(a.x - b.x, a.y - b.y);
+  // Lift the fireball slightly above the palm (toward the fingers).
+  const ux = (b.x - a.x) / (size || 1), uy = (b.y - a.y) / (size || 1);
+  return { x: p.x + ux * size * 0.35, y: p.y + uy * size * 0.35, r: size * 0.75 };
+}
+
+// Match detections to existing fireballs so each one keeps smooth motion and its own flicker.
+function updateFireballs(detections, dt) {
+  const used = new Set();
+  const next = [];
+  for (const d of detections) {
+    let best = null, bestDist = Infinity;
+    for (const f of fireballs) {
+      if (used.has(f)) continue;
+      const dist = Math.hypot(f.x - d.x, f.y - d.y);
+      if (dist < bestDist) { bestDist = dist; best = f; }
+    }
+    if (best && bestDist < Math.max(canvas.width, canvas.height) * 0.25) {
+      used.add(best);
+      const k = 1 - Math.pow(0.0005, dt); // frame-rate independent smoothing
+      const nx = best.x + (d.x - best.x) * k;
+      const ny = best.y + (d.y - best.y) * k;
+      best.vx = (nx - best.x) / Math.max(dt, 1e-3);
+      best.vy = (ny - best.y) / Math.max(dt, 1e-3);
+      best.x = nx; best.y = ny;
+      best.r += (d.r - best.r) * k;
+      best.life = Math.min(1, best.life + dt * 4);
+      best.seen = true;
+      next.push(best);
+    } else {
+      next.push({ ...d, vx: 0, vy: 0, life: 0, seen: true, seed: Math.random() * 1000 });
+    }
+  }
+  // Hands that vanished fade out instead of popping.
+  for (const f of fireballs) {
+    if (used.has(f)) continue;
+    f.life -= dt * 3;
+    f.seen = false;
+    if (f.life > 0) next.push(f);
+  }
+  fireballs = next;
+}
+
+// ---------- Particles ----------
+function emit(f, dt) {
+  const count = Math.round(f.r * 0.9 * dt * 60 * Math.max(f.life, 0.2));
+  for (let i = 0; i < count && particles.length < MAX_PARTICLES; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = Math.sqrt(Math.random()) * f.r * 0.45;
+    const smoke = Math.random() < 0.08;
+    particles.push({
+      x: f.x + Math.cos(ang) * rad,
+      y: f.y + Math.sin(ang) * rad,
+      // Inherit a bit of hand motion so the flame trails behind when you swing.
+      vx: (Math.random() - 0.5) * f.r * 0.8 - f.vx * 0.15,
+      vy: -f.r * (1.2 + Math.random() * 1.6) - f.vy * 0.15,
+      size: f.r * (0.35 + Math.random() * 0.45) * (smoke ? 1.6 : 1),
+      age: 0,
+      ttl: smoke ? 1.2 + Math.random() * 0.6 : 0.35 + Math.random() * 0.45,
+      smoke,
+      wobble: Math.random() * Math.PI * 2,
+    });
+  }
+}
+
+function stepParticles(dt, t) {
+  let w = 0;
+  for (const p of particles) {
+    p.age += dt;
+    if (p.age >= p.ttl) continue;
+    p.wobble += dt * 8;
+    p.vx += Math.sin(p.wobble + t * 3) * p.size * 2 * dt;
+    p.vy -= p.size * 1.5 * dt; // buoyancy
+    p.vx *= 1 - 1.5 * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    particles[w++] = p;
+  }
+  particles.length = w;
+}
+
+function drawParticles() {
+  // Smoke first, normal blending, behind the flame.
+  ctx.globalCompositeOperation = "source-over";
+  for (const p of particles) {
+    if (!p.smoke) continue;
+    const k = p.age / p.ttl;
+    const s = p.size * (0.6 + k * 1.4);
+    ctx.globalAlpha = Math.sin(Math.PI * k) * 0.5;
+    ctx.drawImage(smokeSprite, p.x - s / 2, p.y - s / 2, s, s);
+  }
+  // Flame particles with additive blending: overlapping = hotter / brighter.
+  ctx.globalCompositeOperation = "lighter";
+  for (const p of particles) {
+    if (p.smoke) continue;
+    const k = p.age / p.ttl;
+    const s = p.size * (1 - k * 0.7);
+    ctx.globalAlpha = (1 - k) * (1 - k) * 0.4;
+    ctx.drawImage(fireSprite, p.x - s / 2, p.y - s / 2, s, s);
+  }
+}
+
+function drawCore(f, t) {
+  const flick = 0.85 + 0.15 * Math.sin(t * 23 + f.seed) * Math.sin(t * 7.3 + f.seed * 2);
+  const r = f.r * flick * Math.max(f.life, 0);
+  if (r <= 1) return;
+  ctx.globalCompositeOperation = "lighter";
+  // Wide ambient glow lighting up the scene around the hand.
+  ctx.globalAlpha = 0.35 * f.life;
+  let g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 3);
+  g.addColorStop(0, "rgba(255,140,40,0.6)");
+  g.addColorStop(0.4, "rgba(255,70,0,0.2)");
+  g.addColorStop(1, "rgba(255,40,0,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(f.x, f.y, r * 3, 0, Math.PI * 2); ctx.fill();
+  // Hot white-yellow core.
+  ctx.globalAlpha = 0.7 * f.life;
+  g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 0.7);
+  g.addColorStop(0, "rgba(255,255,240,1)");
+  g.addColorStop(0.35, "rgba(255,220,120,0.8)");
+  g.addColorStop(1, "rgba(255,100,0,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(f.x, f.y, r * 0.7, 0, Math.PI * 2); ctx.fill();
+}
+
+// ---------- Main loop ----------
+function loop(now) {
+  const dt = Math.min((now - lastFrame) / 1000, 0.05);
+  lastFrame = now;
+  const t = now / 1000;
+
+  if (canvas.width !== Math.round(canvas.clientWidth * Math.min(devicePixelRatio || 1, 2))) resize();
+
+  if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const res = landmarker.detectForVideo(video, now);
+    updateFireballs((res.landmarks || []).map(handToFireball), dt);
+  } else {
+    updateFireballs(fireballs.filter(f => f.seen).map(f => ({ x: f.x, y: f.y, r: f.r })), dt);
+  }
+
+  for (const f of fireballs) emit(f, dt);
+  stepParticles(dt, t);
+
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const f of fireballs) drawCore(f, t);
+  drawParticles();
+  ctx.globalAlpha = 1;
+
+  const n = fireballs.filter(f => f.seen).length;
+  statusEl.textContent = n ? `${n} hand${n > 1 ? "s" : ""} on fire 🔥` : "Hold up your hands 🔥";
+
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
