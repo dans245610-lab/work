@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #000; --fg: #ffe6c2; --muted: #c9b29a; --accent: #ff6a00;
-    --panel: rgba(18, 12, 8, 0.94); --line: rgba(255, 200, 150, 0.16); --chip: rgba(255, 255, 255, 0.08);
+    --panel: rgba(18, 12, 8, 0.98); --card: rgba(255, 220, 180, 0.06); --line: rgba(255, 200, 150, 0.16); --chip: rgba(255, 255, 255, 0.08);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
@@ -18,6 +18,7 @@
   #ui { position: fixed; top: 12px; left: 16px; right: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; z-index: 3; }
   button { background: var(--accent); color: #000; border: 0; border-radius: 6px; padding: 10px 14px; font: 600 15px system-ui, sans-serif; cursor: pointer; }
   button.secondary { background: rgba(0,0,0,0.45); color: var(--fg); border: 1px solid var(--line); backdrop-filter: blur(6px); }
+  button.on { border-color: var(--accent); color: #ffb070; }
   #status { font-size: 14px; opacity: 0.9; text-shadow: 0 1px 3px #000; }
 
   #toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-8px); opacity: 0; transition: opacity .25s, transform .25s;
@@ -28,22 +29,33 @@
   #text { flex: 1; min-width: 0; min-height: 48px; display: flex; align-items: center; padding: 8px 14px; border-radius: 8px;
     background: rgba(0,0,0,0.55); border: 1px solid var(--line); backdrop-filter: blur(6px);
     font: 600 26px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; overflow-x: auto; white-space: pre; }
-  #text:empty::before { content: "Sign a letter and hold it to type…"; font: 400 15px system-ui, sans-serif; letter-spacing: 0; color: var(--muted); }
+  #text:empty::before { content: "Sign a letter and hold it still to type…"; font: 400 15px system-ui, sans-serif; letter-spacing: 0; color: var(--muted); }
 
-  #help { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100%); background: var(--panel); border-left: 1px solid var(--line);
-    transform: translateX(100%); transition: transform .25s ease; z-index: 5; overflow-y: auto; padding: 20px 20px 40px; }
+  #practice { position: fixed; right: 16px; bottom: 80px; width: min(260px, calc(100% - 32px)); z-index: 3; padding: 14px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--line); text-align: center; }
+  #practice .target { font: 700 15px system-ui, sans-serif; color: var(--muted); }
+  #practice .target b { font-size: 34px; color: var(--accent); vertical-align: -4px; margin-left: 4px; }
+  #practice .dia svg { width: 150px; height: 150px; }
+  #practice .how { font-size: 13px; color: var(--muted); line-height: 1.4; margin: 6px 0 10px; }
+  #practice .row2 { display: flex; gap: 8px; justify-content: center; }
+  #practice.win { border-color: #7dff9a; }
+
+  #help { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--panel); border-left: 1px solid var(--line);
+    transform: translateX(100%); transition: transform .25s ease; z-index: 5; overflow-y: auto; padding: 20px 16px 40px; }
   #help.open { transform: none; }
   #help h2 { margin: 0 0 4px; font-size: 22px; }
-  #help h3 { margin: 26px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  #help h3 { margin: 24px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
   #help p { margin: 6px 0; line-height: 1.45; color: var(--muted); font-size: 14px; }
-  #help .close { position: sticky; top: 0; float: right; }
-  .react { display: grid; grid-template-columns: 44px 1fr; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
-  .react .L, .row .L { font: 700 28px ui-monospace, Menlo, monospace; color: var(--accent); text-align: center; line-height: 1; }
-  .react .name { font-weight: 650; }
-  .react .how, .row .how { grid-column: 2; font-size: 14px; color: var(--muted); line-height: 1.4; }
-  .row { display: grid; grid-template-columns: 44px 1fr; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line); align-items: start; }
-  .row .tag { display: inline-block; margin-left: 6px; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--chip); color: var(--fg); vertical-align: 2px; }
+  #help .close { position: sticky; top: 0; float: right; z-index: 1; }
   ol { padding-left: 20px; color: var(--muted); font-size: 14px; line-height: 1.5; margin: 6px 0; }
+  #cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; }
+  .card:hover { border-color: rgba(255, 160, 80, 0.5); }
+  .card .top { display: flex; align-items: baseline; gap: 8px; width: 100%; justify-content: space-between; }
+  .card .L { font: 700 26px ui-monospace, Menlo, monospace; color: var(--accent); }
+  .card .fx { font-size: 12px; color: var(--fg); }
+  .card svg { width: 104px; height: 104px; }
+  .card .how { font-size: 12px; color: var(--muted); line-height: 1.35; }
 </style>
 </head>
 <body>
@@ -55,7 +67,8 @@
 <div id="ui">
   <button id="start">Start camera</button>
   <button id="toggleVideo" class="secondary" hidden>Hide video</button>
-  <button id="helpBtn" class="secondary">How to</button>
+  <button id="helpBtn" class="secondary">Guide</button>
+  <button id="practiceBtn" class="secondary">Practice</button>
   <span id="status">Allow camera access, then hold up your hands.</span>
 </div>
 <div id="toast"></div>
@@ -67,29 +80,47 @@
   <button class="secondary" id="clearBtn">Clear</button>
 </div>
 
-<aside id="help" aria-label="How to">
+<div id="practice" hidden>
+  <div class="target">Sign <b id="pLetter">A</b></div>
+  <div class="dia" id="pDia"></div>
+  <div class="how" id="pHow"></div>
+  <div class="row2"><button class="secondary" id="pSkip">Skip</button><button class="secondary" id="pClose">Done</button></div>
+</div>
+
+<aside id="help" aria-label="Guide">
   <button class="secondary close" id="helpClose">Close</button>
-  <h2>How to</h2>
-  <p>Every hand gets a fireball. Sign an ASL letter and <b>hold it still for about a second</b>: the letter gets typed at the bottom, and some letters change that hand's effect.</p>
+  <h2>Guide</h2>
+  <p>Every hand holds a fireball. Sign an ASL letter and <b>hold it still for about a second</b>: the ring above your hand fills up, the letter is typed, and that letter's react plays once.</p>
   <ol>
-    <li>Face your palm toward the camera (most letters) with your hand fully in frame.</li>
-    <li>Good light helps a lot. Keep your hand roughly a forearm's length from the camera.</li>
-    <li>The ring around the letter above your hand fills up while you hold it.</li>
-    <li>To type a double letter, relax your hand for a moment between the two.</li>
+    <li>Palm toward the camera for most letters, whole hand in frame, decent light.</li>
+    <li>Keep your hand still while the ring fills. Moving cancels it.</li>
+    <li>J and Z are drawn in the air. Make the shape, then draw a big letter, about two hand-widths wide.</li>
+    <li>To repeat a letter, relax your hand for a moment between the two.</li>
+    <li>Tap any card below to practise that letter.</li>
   </ol>
-  <h3>Reacts: letter → effect</h3>
-  <div id="reactList"></div>
-  <h3>The full ASL alphabet</h3>
-  <div id="alphaList"></div>
+  <h3>Every letter, its hand shape and its react</h3>
+  <p>Diagrams show a right hand as it looks in the mirrored video. The orange finger is the thumb.</p>
+  <div id="cards"></div>
   <h3>Heads up</h3>
-  <p>Recognition is a small model trained on still photos, so it's a guess, not a teacher. Similar shapes (M / N / S / T / E, or K / V) get mixed up the most. J and Z are motion letters: make the shape, then draw the letter in the air.</p>
+  <p>Recognition is a small model trained on still photos, so treat it as a guess, not a teacher. Look-alike shapes (M / N / S / T / E, K / V, P / Q) get mixed up the most.</p>
 </aside>
 
 <script type="module">
 import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 import { classifyHand } from "./asl.js";
+import { handSVG } from "./handsvg.js";
 
-// ---------------------------------------------------------------- data
+// ================================================================ tuning
+const HOLD_SECONDS = 1.1;     // how long a letter must be held still before it counts
+const MIN_CONF = 0.6;         // per-frame model confidence needed to vote
+const VOTE_WINDOW = 0.7;      // seconds of frames that vote
+const VOTE_SHARE = 0.75;      // share of votes the winning letter needs
+const STILL_SPEED = 1.3;      // max hand speed (hand-sizes per second) while holding
+const MOTION_MIN = 1.0;       // each stroke of a Z (and the drop of a J) in hand-sizes
+const MAX_HANDS = 4;
+const MAX_PARTICLES = 4500;
+
+// ================================================================ letters
 const ALPHABET = {
   A: "Fist with your thumb resting straight up against the side of your index finger.",
   B: "Four fingers straight up and together, thumb folded across your palm.",
@@ -100,7 +131,7 @@ const ALPHABET = {
   G: "Index finger and thumb point sideways, parallel; other fingers curled in.",
   H: "Index and middle fingers together, pointing sideways.",
   I: "Pinky straight up, the rest in a fist with the thumb across the front.",
-  J: "Make an I, then draw a J in the air with your pinky.",
+  J: "Make an I, then draw a big J in the air with your pinky: down, then hook.",
   K: "Index and middle up in a V, thumb tip pressed against the middle finger between them.",
   L: "Index finger up and thumb out to the side: an L.",
   M: "Fold your index, middle and ring fingers down over your thumb.",
@@ -116,91 +147,33 @@ const ALPHABET = {
   W: "Index, middle and ring fingers up and spread.",
   X: "Index finger bent into a hook, the rest in a fist.",
   Y: "Thumb and pinky out, the other fingers curled: “hang loose”.",
-  Z: "Point your index finger and draw a Z in the air.",
+  Z: "Point your index finger and draw a big Z in the air (two hand-widths wide).",
 };
 
-const EFFECTS = {
-  fire:      { name: "Fire",      emoji: "🔥", letter: "F" },
-  ice:       { name: "Ice",       emoji: "❄️", letter: "I" },
-  lightning: { name: "Lightning", emoji: "⚡", letter: "L" },
-  hearts:    { name: "Hearts",    emoji: "💖", letter: "H" },
-  smoke:     { name: "Smoke",     emoji: "💨", letter: "S" },
-  rainbow:   { name: "Rainbow",   emoji: "🌈", letter: "R" },
-  gold:      { name: "Gold stars",emoji: "✨", letter: "G" },
-  bubbles:   { name: "Bubbles",   emoji: "🫧", letter: "B" },
-  poison:    { name: "Poison",    emoji: "☠️", letter: "P" },
-  confetti:  { name: "Confetti",  emoji: "🎉", letter: "C" },
-  water:     { name: "Water",     emoji: "💧", letter: "W" },
-  void:      { name: "Void",      emoji: "🕳️", letter: "V" },
-};
-const REACT_BY_LETTER = Object.fromEntries(Object.entries(EFFECTS).map(([k, e]) => [e.letter, k]));
-
-// ---------------------------------------------------------------- help panel
-{
-  const rl = document.getElementById("reactList");
-  for (const [key, e] of Object.entries(EFFECTS).sort((a, b) => a[1].letter.localeCompare(b[1].letter))) {
-    const d = document.createElement("div");
-    d.className = "react";
-    d.innerHTML = `<div class="L"></div><div class="name"></div><div class="how"></div>`;
-    d.querySelector(".L").textContent = e.letter;
-    d.querySelector(".name").textContent = `${e.emoji} ${e.name}`;
-    d.querySelector(".how").textContent = ALPHABET[e.letter];
-    rl.appendChild(d);
-  }
-  const al = document.getElementById("alphaList");
-  for (const [L, how] of Object.entries(ALPHABET)) {
-    const d = document.createElement("div");
-    d.className = "row";
-    d.innerHTML = `<div class="L"></div><div class="how"></div>`;
-    d.querySelector(".L").textContent = L;
-    d.querySelector(".how").textContent = how;
-    const tags = [];
-    if (REACT_BY_LETTER[L]) tags.push(EFFECTS[REACT_BY_LETTER[L]].emoji + " " + EFFECTS[REACT_BY_LETTER[L]].name);
-    if (L === "J" || L === "Z") tags.push("motion");
-    for (const t of tags) { const s = document.createElement("span"); s.className = "tag"; s.textContent = t; d.querySelector(".how").appendChild(s); }
-    al.appendChild(d);
-  }
-  const help = document.getElementById("help");
-  document.getElementById("helpBtn").onclick = () => help.classList.toggle("open");
-  document.getElementById("helpClose").onclick = () => help.classList.remove("open");
-}
-
-// ---------------------------------------------------------------- dom + state
-const video = document.getElementById("video");
-const canvas = document.getElementById("fx");
-const ctx = canvas.getContext("2d");
-const statusEl = document.getElementById("status");
-const startBtn = document.getElementById("start");
-const toggleBtn = document.getElementById("toggleVideo");
-const textEl = document.getElementById("text");
-const toastEl = document.getElementById("toast");
-
-const MAX_HANDS = 4;
-const MAX_PARTICLES = 3500;
-const HOLD_SECONDS = 0.9;
-
-let landmarker = null;
-let lastVideoTime = -1;
-let particles = [];
-let hands = [];
-let lastFrame = performance.now();
-let typed = "";
+// ================================================================ dom
+const $ = id => document.getElementById(id);
+const video = $("video"), canvas = $("fx"), ctx = canvas.getContext("2d"), wrap = $("wrap");
+const statusEl = $("status"), startBtn = $("start"), toggleBtn = $("toggleVideo"), textEl = $("text"), toastEl = $("toast");
 const DEBUG = location.hash.includes("debug");
 
+let landmarker = null, lastVideoTime = -1, lastFrame = performance.now();
+let particles = [], hands = [], reacts = [];
+let typed = "", flash = 0, shakeUntil = 0, shakeAmp = 0;
+
 function setText(s) { typed = s.slice(-60); textEl.textContent = typed; textEl.scrollLeft = 1e6; }
-document.getElementById("spaceBtn").onclick = () => setText(typed + " ");
-document.getElementById("backBtn").onclick = () => setText(typed.slice(0, -1));
-document.getElementById("clearBtn").onclick = () => setText("");
+$("spaceBtn").onclick = () => setText(typed + " ");
+$("backBtn").onclick = () => setText(typed.slice(0, -1));
+$("clearBtn").onclick = () => setText("");
 
 let toastTimer = 0;
 function toast(msg) {
   toastEl.textContent = msg;
   toastEl.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1400);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1500);
 }
 
-// ---------------------------------------------------------------- sprites
+// ================================================================ sprites
 function makeSprite(stops, size = 96) {
   const c = document.createElement("canvas");
   c.width = c.height = size;
@@ -212,6 +185,7 @@ function makeSprite(stops, size = 96) {
   return c;
 }
 const glow = (a, b, c) => makeSprite([[0, "rgba(255,255,255,1)"], [0.2, `rgba(${a},0.9)`], [0.45, `rgba(${b},0.5)`], [0.75, `rgba(${c},0.15)`], [1, `rgba(${c},0)`]]);
+const soft = (rgb, a) => makeSprite([[0, `rgba(${rgb},${a})`], [0.6, `rgba(${rgb},${a * 0.35})`], [1, `rgba(${rgb},0)`]]);
 const S = {
   fire: glow("255,230,140", "255,120,20", "200,30,0"),
   ice: glow("200,240,255", "80,170,255", "20,60,200"),
@@ -220,166 +194,353 @@ const S = {
   violet: glow("225,210,255", "140,100,255", "60,20,200"),
   pink: glow("255,205,230", "255,90,170", "160,0,80"),
   water: glow("200,235,255", "40,140,255", "0,50,160"),
-  smoke: makeSprite([[0, "rgba(60,50,45,0.4)"], [0.6, "rgba(40,35,30,0.14)"], [1, "rgba(0,0,0,0)"]]),
-  darksmoke: makeSprite([[0, "rgba(25,10,40,0.7)"], [0.55, "rgba(15,5,25,0.3)"], [1, "rgba(0,0,0,0)"]]),
-  frost: makeSprite([[0, "rgba(225,240,255,0.35)"], [0.6, "rgba(180,210,240,0.12)"], [1, "rgba(0,0,0,0)"]]),
-  rainbow: Array.from({ length: 12 }, (_, i) => {
-    const h = i * 30;
-    return makeSprite([[0, "rgba(255,255,255,1)"], [0.25, `hsla(${h},100%,75%,0.9)`], [0.5, `hsla(${h},100%,55%,0.45)`], [1, `hsla(${h},100%,40%,0)`]]);
-  }),
+  smoke: soft("55,47,42", 0.4),
+  dust: soft("150,120,90", 0.45),
+  darksmoke: soft("20,8,35", 0.75),
+  frost: soft("225,240,255", 0.35),
+  aurora: [soft("80,255,170", 0.5), soft("60,220,255", 0.45), soft("170,90,255", 0.4)],
+  rainbow: Array.from({ length: 12 }, (_, i) => makeSprite([[0, "rgba(255,255,255,1)"], [0.25, `hsla(${i * 30},100%,75%,0.9)`], [0.5, `hsla(${i * 30},100%,55%,0.45)`], [1, `hsla(${i * 30},100%,40%,0)`]])),
 };
+const hueSprite = h => S.rainbow[Math.floor((((h % 360) + 360) % 360) / 30) % 12];
 
-// ---------------------------------------------------------------- effects
-// Each effect: core glow colour + an emitter. Rates are per second and scale with hand size r.
+// ================================================================ particles
 const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
 const ADD = 1, NORMAL = 0;
+function P(o) {
+  if (particles.length >= MAX_PARTICLES) return null;
+  const p = { age: 0, ay: 0, drag: 0, wob: 0, grow: 0, rot: 0, vr: 0, alpha: 1, vx: 0, vy: 0, seed: Math.random() * 100, blend: ADD, ...o };
+  particles.push(p);
+  return p;
+}
+function around(x, y, R, k) { const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * R * k; return [x + Math.cos(a) * d, y + Math.sin(a) * d, a]; }
+function radial(x, y, n, f) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2; f(a, Math.cos(a), Math.sin(a), i); } }
 
-function P(o) { if (particles.length < MAX_PARTICLES) particles.push({ age: 0, ay: 0, drag: 0, wob: 0, grow: 0, rot: 0, vr: 0, alpha: 1, seed: Math.random() * 100, ...o }); }
-function disk(h, k) { const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * h.r * k; return [h.x + Math.cos(a) * d, h.y + Math.sin(a) * d, a]; }
+// The fireball every hand carries.
+function emitFire(h, dt) {
+  const mul = h.voidUntil > now() ? 0 : h.reactUntil > now() ? 0.35 : 1;
+  h.fireAcc = (h.fireAcc || 0) + 16 * h.r * dt * Math.max(h.life, 0.15) * mul;
+  h.smokeAcc = (h.smokeAcc || 0) + 1.4 * h.r * dt * Math.max(h.life, 0.15) * mul;
+  for (; h.fireAcc >= 1; h.fireAcc--) {
+    const [x, y] = around(h.x, h.y, h.r, 0.45);
+    P({ kind: "sprite", sprite: S.fire, x, y, vx: rnd(-0.4, 0.4) * h.r - h.vx * 0.15, vy: -h.r * rnd(1.2, 2.8) - h.vy * 0.15,
+        ay: -h.r * 0.8, drag: 1.5, wob: h.r, size: h.r * rnd(0.35, 0.8), grow: -0.7, ttl: rnd(0.35, 0.8), alpha: 0.42 });
+  }
+  for (; h.smokeAcc >= 1; h.smokeAcc--) {
+    const [x, y] = around(h.x, h.y, h.r, 0.4);
+    P({ kind: "sprite", sprite: S.smoke, blend: NORMAL, x, y: y - h.r * 0.6, vx: rnd(-0.3, 0.3) * h.r, vy: -h.r * rnd(1, 1.8), ay: -h.r * 0.3,
+        wob: h.r * 0.6, size: h.r * rnd(0.7, 1.3), grow: 1.4, ttl: rnd(1.1, 1.7), alpha: 0.5, fade: "sin" });
+  }
+}
 
-const FX = {
-  fire: { core: [255, 140, 40], emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y] = disk(h, 0.45);
-      P({ kind: "sprite", sprite: S.fire, blend: ADD, x, y, vx: rnd(-0.4, 0.4) * h.r - h.vx * 0.15, vy: -h.r * rnd(1.2, 2.8) - h.vy * 0.15,
-          ay: -h.r * 0.8, drag: 1.5, wob: h.r, size: h.r * rnd(0.35, 0.8), grow: -0.7, ttl: rnd(0.35, 0.8), alpha: 0.42 });
+// ================================================================ reacts: one per letter, played once when the letter is done
+// tick(r, age, dt): r.x/r.y follow the hand, r.R is the hand size, r.every(name, perSecond, dt) → how many to spawn now.
+const REACTS = {
+  A: { name: "Aurora", emoji: "🌌", dur: 2.0, tick(r, age, dt) {
+    for (let i = r.every("a", 45, dt); i--;) {
+      const x = r.x + rnd(-2.6, 2.6) * r.R;
+      P({ kind: "sprite", sprite: pick(S.aurora), x, y: r.y - r.R * 1.6 + Math.sin(x / r.R + age * 3) * r.R * 0.5 + rnd(-0.3, 0.3) * r.R,
+          vx: rnd(-0.1, 0.1) * r.R, vy: -r.R * rnd(0.2, 0.6), size: r.R * rnd(0.7, 1.4), grow: 0.6, ttl: rnd(1.2, 1.8), alpha: 0.45, fade: "sin" });
     }
-    for (let i = 0; i < n.side; i++) {
-      const [x, y] = disk(h, 0.4);
-      P({ kind: "sprite", sprite: S.smoke, blend: NORMAL, x, y: y - h.r * 0.6, vx: rnd(-0.3, 0.3) * h.r, vy: -h.r * rnd(1, 1.8), ay: -h.r * 0.3,
-          wob: h.r * 0.6, size: h.r * rnd(0.7, 1.3), grow: 1.4, ttl: rnd(1.1, 1.7), alpha: 0.5, fade: "sin" });
+  } },
+  B: { name: "Bubbles", emoji: "🫧", dur: 1.0, tick(r, age, dt) {
+    for (let i = r.once("b") ? 28 : r.every("b", 18, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 0.7);
+      P({ kind: "bubble", blend: NORMAL, color: "210,240,255", x, y, vx: rnd(-0.6, 0.6) * r.R, vy: -r.R * rnd(0.5, 1.3), wob: r.R * 0.7,
+          size: r.R * rnd(0.08, 0.32), ttl: rnd(1.3, 2.4) });
     }
-  }, rates: { main: 16, side: 1.4 } },
-
-  ice: { core: [140, 210, 255], emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y, a] = disk(h, 0.6);
-      P({ kind: "sprite", sprite: S.ice, blend: ADD, x, y, vx: Math.cos(a) * h.r * 0.35, vy: Math.sin(a) * h.r * 0.35 + h.r * 0.2,
-          ay: h.r * 0.4, drag: 1, size: h.r * rnd(0.25, 0.55), grow: -0.5, ttl: rnd(0.6, 1.1), alpha: 0.45 });
+  } },
+  C: { name: "Confetti", emoji: "🎉", dur: 0.1, tick(r) {
+    if (r.once("c")) for (let i = 0; i < 140; i++) {
+      P({ kind: "confetti", blend: NORMAL, color: `hsl(${Math.floor(rnd(0, 360))},90%,60%)`, x: r.x, y: r.y,
+          vx: rnd(-2.2, 2.2) * r.R, vy: -r.R * rnd(2.5, 5.5), ay: r.R * 5, drag: 0.9, size: r.R * rnd(0.08, 0.14), ttl: rnd(1.6, 2.6), rot: Math.random() * 6, vr: rnd(-10, 10) });
     }
-    for (let i = 0; i < n.side; i++) {
-      const [x, y, a] = disk(h, 0.9);
-      P({ kind: "sparkle", blend: ADD, color: "220,245,255", x, y, vx: Math.cos(a) * h.r * 0.4, vy: Math.sin(a) * h.r * 0.4, ay: h.r * 0.5,
-          size: h.r * rnd(0.1, 0.22), ttl: rnd(0.5, 1.0), rot: Math.random() * 3, vr: rnd(-2, 2) });
-      P({ kind: "sprite", sprite: S.frost, blend: NORMAL, x, y, vx: rnd(-0.3, 0.3) * h.r, vy: h.r * rnd(0.1, 0.4), ay: h.r * 0.2,
-          size: h.r * rnd(0.6, 1.1), grow: 1.2, ttl: rnd(1, 1.6), alpha: 0.6, fade: "sin" });
+  } },
+  D: { name: "Diamonds", emoji: "💎", dur: 0.8, tick(r, age, dt) {
+    if (r.once("d")) radial(r.x, r.y, 22, (a, c, s) => {
+      const sp = r.R * rnd(1.5, 3.5);
+      P({ kind: "diamond", blend: NORMAL, x: r.x, y: r.y, vx: c * sp, vy: s * sp - r.R, ay: r.R * 1.5, drag: 1.4, size: r.R * rnd(0.18, 0.32), ttl: rnd(1.2, 1.8), rot: rnd(-0.5, 0.5), vr: rnd(-3, 3), hue: rnd(180, 210) });
+    });
+    for (let i = r.every("s", 40, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 1.5);
+      P({ kind: "star", color: "230,250,255", x, y, size: r.R * rnd(0.08, 0.18), ttl: rnd(0.3, 0.6), rot: Math.random() * 3 });
     }
-  }, rates: { main: 9, side: 2.5 } },
-
-  poison: { core: [90, 255, 80], emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y] = disk(h, 0.45);
-      P({ kind: "sprite", sprite: S.poison, blend: ADD, x, y, vx: rnd(-0.3, 0.3) * h.r, vy: -h.r * rnd(0.6, 1.4), ay: -h.r * 0.3,
-          drag: 1.5, wob: h.r * 0.8, size: h.r * rnd(0.3, 0.7), grow: -0.6, ttl: rnd(0.5, 1.0), alpha: 0.42 });
+  } },
+  E: { name: "Explosion", emoji: "💥", dur: 0.1, tick(r) {
+    if (!r.once("e")) return;
+    shake(0.35, r.R * 0.12); flash = Math.max(flash, 0.35);
+    P({ kind: "ring", color: "255,180,80", x: r.x, y: r.y, r0: r.R * 0.3, r1: r.R * 4.5, lw: r.R * 0.25, ttl: 0.55 });
+    radial(r.x, r.y, 140, (a, c, s) => {
+      const sp = r.R * rnd(2, 8);
+      P({ kind: "sprite", sprite: S.fire, x: r.x, y: r.y, vx: c * sp, vy: s * sp, ay: -r.R * 1.5, drag: 2.5, size: r.R * rnd(0.6, 1.3), grow: -0.3, ttl: rnd(0.7, 1.2), alpha: 0.75 });
+    });
+    radial(r.x, r.y, 26, (a, c, s) => {
+      const sp = r.R * rnd(1, 3);
+      P({ kind: "sprite", sprite: S.smoke, blend: NORMAL, x: r.x, y: r.y, vx: c * sp, vy: s * sp, ay: -r.R * 0.6, drag: 2.5, size: r.R * rnd(0.8, 1.6), grow: 1.5, ttl: rnd(1.2, 2), alpha: 0.7, fade: "sin" });
+    });
+  } },
+  F: { name: "Fireworks", emoji: "🎆", dur: 0.7, tick(r, age) {
+    for (const [k, at] of [["f1", 0], ["f2", 0.22], ["f3", 0.45]]) {
+      if (age < at || !r.once(k)) continue;
+      const hue = rnd(0, 360);
+      P({ kind: "sprite", sprite: S.gold, x: r.x, y: r.y, vx: rnd(-1.2, 1.2) * r.R, vy: -r.R * rnd(6.5, 8.5), ay: r.R * 6, size: r.R * 0.35, ttl: rnd(0.55, 0.7), alpha: 1,
+          fn(p, dt) { if (Math.random() < 0.7) P({ kind: "sprite", sprite: S.fire, x: p.x, y: p.y, vx: rnd(-0.3, 0.3) * r.R, vy: r.R * 0.5, size: r.R * 0.2, grow: -0.8, ttl: 0.35, alpha: 0.6 }); },
+          onDeath(p) {
+            flash = Math.max(flash, 0.12);
+            radial(p.x, p.y, 80, (a, c, s) => {
+              const sp = r.R * rnd(2.5, 4.2);
+              P({ kind: "sprite", sprite: hueSprite(hue + rnd(-25, 25)), x: p.x, y: p.y, vx: c * sp, vy: s * sp, ay: r.R * 1.6, drag: 1.4, size: r.R * rnd(0.18, 0.32), grow: -0.4, ttl: rnd(0.9, 1.4), alpha: 0.9 });
+            });
+          } });
     }
-    for (let i = 0; i < n.side; i++) {
-      const [x, y] = disk(h, 0.5);
-      P({ kind: "bubble", blend: NORMAL, color: "150,255,120", x, y, vx: rnd(-0.2, 0.2) * h.r, vy: -h.r * rnd(0.5, 1.1), wob: h.r * 0.6,
-          size: h.r * rnd(0.06, 0.18), ttl: rnd(0.9, 1.6) });
+  } },
+  G: { name: "Gold stars", emoji: "✨", dur: 0.6, tick(r, age, dt) {
+    if (r.once("g")) radial(r.x, r.y, 36, (a, c, s) => {
+      const sp = r.R * rnd(0.8, 2.6);
+      P({ kind: "star", color: "255,215,110", x: r.x, y: r.y, vx: c * sp, vy: s * sp, drag: 1, size: r.R * rnd(0.15, 0.36), ttl: rnd(0.9, 1.6), rot: Math.random() * 3, vr: rnd(-3, 3) });
+    });
+    for (let i = r.every("m", 50, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 1.2);
+      P({ kind: "sprite", sprite: S.gold, x, y, vy: -r.R * rnd(0.2, 0.7), size: r.R * rnd(0.12, 0.25), ttl: rnd(0.6, 1.2), alpha: 0.8 });
     }
-  }, rates: { main: 11, side: 0.25 } },
-
-  rainbow: { core: null, emit(h, n, t) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y, a] = disk(h, 0.25);
-      const hue = ((t * 160 + (a * 180) / Math.PI) % 360 + 360) % 360;
-      P({ kind: "sprite", sprite: S.rainbow[Math.floor(hue / 30) % 12], blend: ADD, x, y,
-          vx: Math.cos(a) * h.r * 0.8 - Math.sin(a) * h.r * 1.4, vy: Math.sin(a) * h.r * 0.8 + Math.cos(a) * h.r * 1.4, ay: -h.r * 0.3,
-          drag: 0.8, size: h.r * rnd(0.3, 0.6), grow: -0.5, ttl: rnd(0.6, 1.0), alpha: 0.5 });
+  } },
+  H: { name: "Hearts", emoji: "💖", dur: 1.0, tick(r, age, dt) {
+    for (let i = r.once("h") ? 14 : r.every("h", 12, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 0.6);
+      P({ kind: "heart", blend: NORMAL, color: `hsl(${rnd(325, 355)},95%,${rnd(55, 70)}%)`, x, y, vx: rnd(-1, 1) * r.R, vy: -r.R * rnd(0.8, 1.8), drag: 0.6,
+          wob: r.R * 0.8, size: r.R * rnd(0.22, 0.45), ttl: rnd(1.3, 2.0), rot: rnd(-0.3, 0.3) });
     }
-  }, rates: { main: 12 } },
-
-  gold: { core: [255, 200, 80], emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y, a] = disk(h, 0.5);
-      const sp = h.r * rnd(0.4, 1.2);
-      P({ kind: "star", blend: ADD, color: "255,215,110", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - h.r * 0.2, drag: 0.8,
-          size: h.r * rnd(0.14, 0.34), ttl: rnd(0.8, 1.5), rot: Math.random() * 3, vr: rnd(-2.5, 2.5) });
+  } },
+  I: { name: "Ice shards", emoji: "🧊", dur: 0.1, tick(r) {
+    if (!r.once("i")) return;
+    radial(r.x, r.y, 26, (a, c, s) => {
+      const sp = r.R * rnd(2.5, 5);
+      P({ kind: "shard", blend: NORMAL, color: `hsl(${rnd(190, 205)},90%,${rnd(75, 90)}%)`, x: r.x + c * r.R * 0.3, y: r.y + s * r.R * 0.3, vx: c * sp, vy: s * sp, ay: r.R * 2, drag: 2.2,
+          size: r.R * rnd(0.25, 0.5), ttl: rnd(0.9, 1.4), rot: a, vr: rnd(-1, 1) });
+    });
+    radial(r.x, r.y, 20, (a, c, s) => P({ kind: "sprite", sprite: S.frost, blend: NORMAL, x: r.x, y: r.y, vx: c * r.R, vy: s * r.R + r.R * 0.3, drag: 1, size: r.R * rnd(0.8, 1.4), grow: 1.2, ttl: rnd(1, 1.6), alpha: 0.7, fade: "sin" }));
+    radial(r.x, r.y, 24, (a, c, s) => P({ kind: "star", color: "220,245,255", x: r.x + c * r.R * rnd(0.3, 1.6), y: r.y + s * r.R * rnd(0.3, 1.6), size: r.R * rnd(0.1, 0.2), ttl: rnd(0.4, 0.9), rot: Math.random() * 3 }));
+  } },
+  J: { name: "Jackpot", emoji: "🪙", dur: 0.5, tick(r, age, dt) {
+    for (let i = r.once("j") ? 24 : r.every("j", 40, dt); i--;) {
+      P({ kind: "coin", blend: NORMAL, x: r.x, y: r.y, vx: rnd(-2.2, 2.2) * r.R, vy: -r.R * rnd(3, 5.5), ay: r.R * 7, size: r.R * rnd(0.16, 0.24), ttl: rnd(1.4, 2.0), rot: Math.random() * 6, vr: rnd(6, 12) });
     }
-    for (let i = 0; i < n.side; i++) {
-      const [x, y] = disk(h, 0.5);
-      P({ kind: "sprite", sprite: S.gold, blend: ADD, x, y, vx: rnd(-0.3, 0.3) * h.r, vy: -h.r * rnd(0.2, 0.7), wob: h.r * 0.5,
-          size: h.r * rnd(0.12, 0.25), ttl: rnd(0.6, 1.2), alpha: 0.8 });
+  } },
+  K: { name: "Kaleidoscope", emoji: "🔮", dur: 1.2, tick(r, age, dt) {
+    for (let i = r.every("k", 40, dt); i--;) {
+      const a0 = Math.random() * Math.PI / 4, hue = (age * 300 + rnd(0, 40)) % 360, sp = r.R * rnd(1.4, 2.6), tw = rnd(-1, 1);
+      for (let k = 0; k < 8; k++) {
+        const a = a0 + (k * Math.PI) / 4;
+        P({ kind: "sprite", sprite: hueSprite(hue), x: r.x, y: r.y, vx: Math.cos(a) * sp - Math.sin(a) * sp * tw * 0.5, vy: Math.sin(a) * sp + Math.cos(a) * sp * tw * 0.5,
+            drag: 0.7, size: r.R * 0.4, grow: -0.3, ttl: 1.0, alpha: 0.8 });
+      }
     }
-  }, rates: { main: 2.2, side: 4 } },
-
-  hearts: { core: [255, 90, 170], emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y] = disk(h, 0.5);
-      P({ kind: "heart", blend: NORMAL, color: `hsl(${rnd(325, 355)},95%,${rnd(55, 70)}%)`, x, y, vx: rnd(-0.3, 0.3) * h.r - h.vx * 0.1,
-          vy: -h.r * rnd(0.6, 1.2), wob: h.r * 0.8, size: h.r * rnd(0.2, 0.42), ttl: rnd(1.2, 2.0), rot: rnd(-0.3, 0.3) });
+  } },
+  L: { name: "Lightning", emoji: "⚡", dur: 1.0, tick(r, age, dt) {
+    if (r.once("l")) { flash = Math.max(flash, 0.3); if (r.h) r.h.boltsUntil = now() + 1.0; }
+    for (let i = r.every("s", 60, dt); i--;) {
+      const a = Math.random() * Math.PI * 2, sp = r.R * rnd(2, 5);
+      P({ kind: "sprite", sprite: S.violet, x: r.x, y: r.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, drag: 3, size: r.R * rnd(0.08, 0.18), ttl: rnd(0.15, 0.4) });
     }
-    for (let i = 0; i < n.side; i++) {
-      const [x, y] = disk(h, 0.5);
-      P({ kind: "sprite", sprite: S.pink, blend: ADD, x, y, vx: rnd(-0.3, 0.3) * h.r, vy: -h.r * rnd(0.3, 0.8), size: h.r * rnd(0.15, 0.3), ttl: rnd(0.5, 1), alpha: 0.6 });
+  } },
+  M: { name: "Music", emoji: "🎵", dur: 1.4, tick(r, age, dt) {
+    for (let i = r.once("m") ? 6 : r.every("m", 10, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 0.6);
+      P({ kind: "glyph", blend: NORMAL, text: pick(["♪", "♫", "♬", "♩"]), color: `hsl(${pick([45, 190, 290, 330])},95%,70%)`, x, y, vx: rnd(-0.6, 0.6) * r.R, vy: -r.R * rnd(0.8, 1.4),
+          outline: "rgba(0,0,0,0.55)", wob: r.R * 0.9, size: r.R * rnd(0.7, 1.1), ttl: rnd(1.4, 2.0), rot: rnd(-0.3, 0.3) });
     }
-  }, rates: { main: 0.13, side: 3 } },
-
-  bubbles: { core: [150, 210, 255], coreAlpha: 0.35, emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y] = disk(h, 0.6);
-      P({ kind: "bubble", blend: NORMAL, color: "210,240,255", x, y, vx: rnd(-0.25, 0.25) * h.r - h.vx * 0.1, vy: -h.r * rnd(0.4, 1.0), wob: h.r * 0.7,
-          size: h.r * rnd(0.07, 0.3), ttl: rnd(1.2, 2.4) });
+  } },
+  N: { name: "Ninja stars", emoji: "🥷", dur: 0.4, tick(r, age) {
+    for (const [k, at] of [["n1", 0], ["n2", 0.12], ["n3", 0.24]]) {
+      if (age < at || !r.once(k)) continue;
+      for (let i = 0; i < 2; i++) {
+        const a = rnd(0, Math.PI * 2), sp = r.R * rnd(6, 9);
+        P({ kind: "shuriken", blend: NORMAL, x: r.x, y: r.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, size: r.R * 0.32, ttl: 0.8, rot: 0, vr: 20,
+            fn(p) { P({ kind: "sprite", sprite: S.smoke, blend: NORMAL, x: p.x, y: p.y, size: r.R * 0.3, grow: 0.8, ttl: 0.3, alpha: 0.4, fade: "sin" }); } });
+      }
     }
-  }, rates: { main: 0.18 } },
-
-  water: { core: [60, 150, 255], emit(h, n, t) {
-    for (let i = 0; i < n.main; i++) {
-      // A swirling ring of water droplets orbiting the palm.
-      const a = Math.random() * Math.PI * 2, rr = h.r * rnd(0.55, 0.8);
-      const x = h.x + Math.cos(a) * rr, y = h.y + Math.sin(a) * rr * 0.55;
-      const sp = h.r * 2.2;
-      P({ kind: "sprite", sprite: S.water, blend: ADD, x, y, vx: -Math.sin(a) * sp, vy: Math.cos(a) * sp * 0.55, drag: 0.6,
-          size: h.r * rnd(0.2, 0.42), grow: -0.6, ttl: rnd(0.35, 0.7), alpha: 0.5 });
+  } },
+  O: { name: "Orbit", emoji: "🪐", dur: 0.1, tick(r) {
+    if (!r.once("o")) return;
+    const follow = r.h;
+    for (let ring = 0; ring < 3; ring++) {
+      const tilt = (ring - 1) * 0.9, rad = r.R * (1.2 + ring * 0.35), sp = (ring % 2 ? -1 : 1) * rnd(3, 4.5), hue = [190, 280, 40][ring];
+      for (let k = 0; k < 16; k++) {
+        const a0 = (k / 16) * Math.PI * 2;
+        P({ kind: "sprite", sprite: hueSprite(hue), x: r.x, y: r.y, size: r.R * 0.3, ttl: 1.8, alpha: 0.75, fade: "sin", custom: true,
+            fn(p) {
+              const cx = follow && follow.life > 0 ? follow.x : r.x, cy = follow && follow.life > 0 ? follow.y : r.y;
+              const a = a0 + p.age * sp, ex = Math.cos(a) * rad, ey = Math.sin(a) * rad * 0.35;
+              p.x = cx + ex * Math.cos(tilt) - ey * Math.sin(tilt);
+              p.y = cy + ex * Math.sin(tilt) + ey * Math.cos(tilt);
+            } });
+      }
     }
-    for (let i = 0; i < n.side; i++) {
-      const [x, y] = disk(h, 0.7);
-      P({ kind: "drop", blend: NORMAL, color: "170,215,255", x, y, vx: rnd(-0.6, 0.6) * h.r - h.vx * 0.2, vy: -h.r * rnd(0, 0.8), ay: h.r * 4,
-          size: h.r * rnd(0.05, 0.1), ttl: rnd(0.6, 1.1) });
+  } },
+  P: { name: "Poison", emoji: "☠️", dur: 1.2, tick(r, age, dt) {
+    for (let i = r.every("p", 70, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 0.6);
+      P({ kind: "sprite", sprite: S.poison, x, y, vx: rnd(-0.4, 0.4) * r.R, vy: -r.R * rnd(0.6, 1.6), ay: -r.R * 0.3, wob: r.R * 0.8, size: r.R * rnd(0.3, 0.7), grow: -0.6, ttl: rnd(0.5, 1.0), alpha: 0.45 });
     }
-  }, rates: { main: 14, side: 1.6 } },
-
-  void: { core: null, dark: true, emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      // Particles spawn on a ring and get sucked into the centre.
-      const a = Math.random() * Math.PI * 2, rr = h.r * rnd(1.0, 1.6);
-      P({ kind: "sprite", sprite: S.violet, blend: ADD, x: h.x + Math.cos(a) * rr, y: h.y + Math.sin(a) * rr, attract: h,
-          vx: -Math.sin(a) * h.r * 1.5, vy: Math.cos(a) * h.r * 1.5, size: h.r * rnd(0.12, 0.28), ttl: rnd(0.5, 0.8), alpha: 0.7 });
+    for (let i = r.every("b", 16, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 0.6);
+      P({ kind: "bubble", blend: NORMAL, color: "150,255,120", x, y, vx: rnd(-0.3, 0.3) * r.R, vy: -r.R * rnd(0.5, 1.1), wob: r.R * 0.6, size: r.R * rnd(0.06, 0.18), ttl: rnd(0.9, 1.6) });
     }
-  }, rates: { main: 9 } },
-
-  smoke: { core: null, emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y] = disk(h, 0.5);
-      P({ kind: "sprite", sprite: S.smoke, blend: NORMAL, x, y, vx: rnd(-0.3, 0.3) * h.r - h.vx * 0.15, vy: -h.r * rnd(0.3, 0.8), ay: -h.r * 0.2,
-          wob: h.r * 0.5, size: h.r * rnd(0.6, 1.3), grow: 1.6, ttl: rnd(1.2, 2.2), alpha: 0.75, fade: "sin" });
+    if (r.once("skull")) P({ kind: "glyph", blend: NORMAL, text: "☠", color: "hsl(110,80%,70%)", x: r.x, y: r.y - r.R * 0.5, vy: -r.R * 0.9, size: r.R * 1.0, ttl: 1.4 });
+  } },
+  Q: { name: "Quake", emoji: "🌋", dur: 0.9, tick(r, age, dt) {
+    if (r.once("q")) shake(0.9, r.R * 0.18);
+    for (let i = r.every("d", 50, dt); i--;) {
+      const x = r.x + rnd(-3, 3) * r.R;
+      P({ kind: "sprite", sprite: S.dust, blend: NORMAL, x, y: canvas.height + r.R * 0.2, vx: rnd(-0.3, 0.3) * r.R, vy: -r.R * rnd(0.6, 1.4), drag: 1, size: r.R * rnd(0.8, 1.6), grow: 1, ttl: rnd(1, 1.6), alpha: 0.7, fade: "sin" });
     }
-    for (let i = 0; i < n.side; i++) {
-      const [x, y] = disk(h, 0.5);
-      P({ kind: "sprite", sprite: S.fire, blend: ADD, x, y, vx: rnd(-0.4, 0.4) * h.r, vy: -h.r * rnd(0.8, 1.6), wob: h.r * 1.5,
-          size: h.r * rnd(0.07, 0.15), ttl: rnd(0.8, 1.5), alpha: 0.9 });
+    for (let i = r.every("rock", 22, dt); i--;) {
+      P({ kind: "shard", blend: NORMAL, color: `hsl(25,${rnd(15, 30)}%,${rnd(22, 38)}%)`, x: r.x + rnd(-2.5, 2.5) * r.R, y: canvas.height, vx: rnd(-1, 1) * r.R, vy: -r.R * rnd(4, 7), ay: r.R * 9,
+          size: r.R * rnd(0.15, 0.3), ttl: 1.6, rot: Math.random() * 6, vr: rnd(-6, 6) });
     }
-  }, rates: { main: 4, side: 0.8 } },
-
-  confetti: { core: null, emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const [x, y] = disk(h, 0.3);
-      P({ kind: "confetti", blend: NORMAL, color: `hsl(${Math.floor(rnd(0, 360))},90%,60%)`, x, y,
-          vx: rnd(-1.5, 1.5) * h.r, vy: -h.r * rnd(2, 4), ay: h.r * 5, drag: 0.8, size: h.r * rnd(0.07, 0.13),
-          ttl: rnd(1.5, 2.5), rot: Math.random() * 6, vr: rnd(-10, 10) });
+  } },
+  R: { name: "Rainbow", emoji: "🌈", dur: 0.9, tick(r, age, dt) {
+    if (r.once("arc")) P({ kind: "arc", blend: NORMAL, x: r.x, y: r.y, size: r.R * 2.2, ttl: 1.6 });
+    for (let i = r.every("s", 110, dt); i--;) {
+      const [x, y, a] = around(r.x, r.y, r.R, 0.25), hue = (age * 400 + (a * 180) / Math.PI) % 360;
+      P({ kind: "sprite", sprite: hueSprite(hue), x, y, vx: Math.cos(a) * r.R * 0.8 - Math.sin(a) * r.R * 1.8, vy: Math.sin(a) * r.R * 0.8 + Math.cos(a) * r.R * 1.8,
+          drag: 0.8, size: r.R * rnd(0.3, 0.6), grow: -0.5, ttl: rnd(0.6, 1.0), alpha: 0.5 });
     }
-  }, rates: { main: 0.4 } },
-
-  lightning: { core: [150, 120, 255], bolts: true, emit(h, n) {
-    for (let i = 0; i < n.main; i++) {
-      const a = Math.random() * Math.PI * 2, sp = h.r * rnd(2, 5);
-      P({ kind: "sprite", sprite: S.violet, blend: ADD, x: h.x, y: h.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, drag: 3,
-          size: h.r * rnd(0.08, 0.18), ttl: rnd(0.15, 0.4), alpha: 1 });
+  } },
+  S: { name: "Snow", emoji: "❄️", dur: 2.2, tick(r, age, dt) {
+    for (let i = r.every("s", 55, dt); i--;) {
+      P({ kind: "flake", blend: NORMAL, x: rnd(0, canvas.width), y: -20, vx: rnd(-0.2, 0.2) * r.R, vy: r.R * rnd(0.8, 1.6), wob: r.R * 0.4,
+          size: r.R * rnd(0.08, 0.2), ttl: canvas.height / (r.R * 0.9), rot: Math.random() * 3, vr: rnd(-1, 1) });
     }
-  }, rates: { main: 4 } },
+  } },
+  T: { name: "Tornado", emoji: "🌪️", dur: 1.6, tick(r, age, dt) {
+    const follow = r.h;
+    for (let i = r.every("t", 120, dt); i--;) {
+      const a0 = Math.random() * Math.PI * 2, w = rnd(7, 10), rise = r.R * rnd(1.8, 2.6), debris = Math.random() < 0.15;
+      P({ kind: debris ? "shard" : "sprite", sprite: S.dust, blend: NORMAL, color: "hsl(30,20%,35%)", x: r.x, y: r.y, size: debris ? r.R * 0.12 : r.R * rnd(0.3, 0.6),
+          ttl: rnd(0.9, 1.3), alpha: 0.6, fade: "sin", custom: true, vr: 8,
+          fn(p) {
+            const cx = follow && follow.life > 0 ? follow.x : r.x, cy = follow && follow.life > 0 ? follow.y : r.y;
+            const hgt = p.age * rise, rad = r.R * (0.15 + 0.45 * hgt / r.R);
+            p.x = cx + Math.cos(a0 + p.age * w) * rad; p.y = cy - hgt; p.rot += 0.3;
+          } });
+    }
+  } },
+  U: { name: "Unicorn", emoji: "🦄", dur: 0.8, tick(r, age, dt) {
+    if (r.once("u")) for (let i = 0; i < 5; i++) P({ kind: "glyph", blend: NORMAL, text: "🦄", x: r.x, y: r.y, vx: rnd(-1.5, 1.5) * r.R, vy: -r.R * rnd(1.5, 2.5), ay: r.R * 0.6, size: r.R * rnd(0.6, 0.9), ttl: rnd(1.4, 1.9), rot: rnd(-0.4, 0.4) });
+    for (let i = r.every("s", 60, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 1.0);
+      P({ kind: "star", color: `${Math.floor(rnd(200, 255))},${Math.floor(rnd(150, 255))},${Math.floor(rnd(200, 255))}`, x, y, vy: -r.R * rnd(0.2, 0.8), size: r.R * rnd(0.1, 0.22), ttl: rnd(0.5, 1), rot: Math.random() * 3 });
+    }
+  } },
+  V: { name: "Void", emoji: "🕳️", dur: 1.4, tick(r, age, dt) {
+    if (r.once("v") && r.h) r.h.voidUntil = now() + 1.4;
+    for (let i = r.every("v", 60, dt); i--;) {
+      const a = Math.random() * Math.PI * 2, rr = r.R * rnd(1.2, 2.0);
+      P({ kind: "sprite", sprite: S.violet, x: r.x + Math.cos(a) * rr, y: r.y + Math.sin(a) * rr, attract: r.h || r, vx: -Math.sin(a) * r.R * 1.6, vy: Math.cos(a) * r.R * 1.6,
+          size: r.R * rnd(0.12, 0.28), ttl: rnd(0.5, 0.8), alpha: 0.7 });
+    }
+  } },
+  W: { name: "Splash", emoji: "💦", dur: 0.5, tick(r, age) {
+    for (const [k, at] of [["w1", 0], ["w2", 0.18], ["w3", 0.36]]) {
+      if (age < at || !r.once(k)) continue;
+      P({ kind: "ring", color: "140,200,255", x: r.x, y: r.y, r0: r.R * 0.3, r1: r.R * 2.6, lw: r.R * 0.1, ttl: 0.8, squash: 0.45 });
+    }
+    if (r.once("drops")) {
+      for (let i = 0; i < 60; i++) P({ kind: "drop", blend: NORMAL, color: "170,215,255", x: r.x, y: r.y, vx: rnd(-2.5, 2.5) * r.R, vy: -r.R * rnd(2, 5), ay: r.R * 8, size: r.R * rnd(0.05, 0.11), ttl: rnd(0.8, 1.3) });
+      radial(r.x, r.y, 30, (a, c, s) => P({ kind: "sprite", sprite: S.water, x: r.x, y: r.y, vx: c * r.R * 2, vy: s * r.R * 2, drag: 2, size: r.R * rnd(0.3, 0.5), grow: -0.5, ttl: 0.6, alpha: 0.5 }));
+    }
+  } },
+  X: { name: "+XP", emoji: "🎮", dur: 0.6, tick(r, age, dt) {
+    if (r.once("x")) P({ kind: "glyph", blend: NORMAL, text: "+100 XP", color: "#ffd84a", outline: "#5a3300", x: r.x, y: r.y - r.R * 0.8, vy: -r.R * 1.0, drag: 0.5, size: r.R * 0.75, ttl: 1.5, pop: true });
+    for (let i = r.every("s", 50, dt); i--;) {
+      const [x, y] = around(r.x, r.y - r.R * 0.8, r.R, 1.2);
+      P({ kind: "star", color: "255,230,120", x, y, vy: -r.R * 0.5, size: r.R * rnd(0.1, 0.2), ttl: rnd(0.4, 0.8), rot: Math.random() * 3 });
+    }
+  } },
+  Y: { name: "Sunshine", emoji: "☀️", dur: 1.2, tick(r, age, dt) {
+    if (r.once("y")) { const follow = r.h; P({ kind: "rays", x: r.x, y: r.y, size: r.R * 2.8, ttl: 1.5, custom: true, fn(p) { if (follow && follow.life > 0) { p.x = follow.x; p.y = follow.y; } } }); }
+    for (let i = r.every("m", 40, dt); i--;) {
+      const [x, y] = around(r.x, r.y, r.R, 1.4);
+      P({ kind: "sprite", sprite: S.gold, x, y, vy: -r.R * rnd(0.1, 0.5), size: r.R * rnd(0.15, 0.3), ttl: rnd(0.6, 1.1), alpha: 0.7 });
+    }
+  } },
+  Z: { name: "Zzz", emoji: "💤", dur: 1.5, tick(r, age, dt) {
+    for (let i = r.once("z") ? 1 : r.every("z", 3.5, dt); i--;) {
+      P({ kind: "glyph", blend: NORMAL, text: "Z", color: "#bfe3ff", outline: "#1b3550", x: r.x + r.R * 0.3, y: r.y - r.R * 0.5, vx: r.R * rnd(0.5, 0.9), vy: -r.R * rnd(0.8, 1.1), wob: r.R * 0.5,
+          size: r.R * rnd(0.45, 0.6), grow: 1.2, ttl: 1.6, rot: rnd(-0.3, 0.1) });
+    }
+  } },
 };
 
-// ---------------------------------------------------------------- camera + model
+function now() { return performance.now() / 1000; }
+function shake(dur, amp) { shakeUntil = Math.max(shakeUntil, now() + dur); shakeAmp = Math.max(shakeAmp, amp); }
+
+function playReact(letter, h) {
+  const def = REACTS[letter];
+  if (!def) return;
+  const r = { letter, h, x: h.x, y: h.y, R: h.r, t0: now(), dur: def.dur, acc: {}, done: new Set(),
+    every(k, rate, dt) { this.acc[k] = (this.acc[k] || 0) + rate * dt * (this.R / 100); const n = Math.floor(this.acc[k]); this.acc[k] -= n; return n; },
+    once(k) { if (this.done.has(k)) return false; this.done.add(k); return true; } };
+  h.reactUntil = r.t0 + def.dur + 0.3;
+  reacts.push(r);
+  toast(`${letter} → ${def.emoji} ${def.name}`);
+}
+
+function tickReacts(dt) {
+  const t = now();
+  reacts = reacts.filter(r => {
+    const age = t - r.t0;
+    if (r.h && r.h.life > 0) { r.x = r.h.x; r.y = r.h.y; r.R = r.h.r; } else r.h = null;
+    REACTS[r.letter].tick(r, age, dt);
+    return age < r.dur;
+  });
+}
+
+// ================================================================ guide + practice
+{
+  const cards = $("cards");
+  for (const [L, how] of Object.entries(ALPHABET)) {
+    const d = document.createElement("div");
+    d.className = "card";
+    d.title = "Practise " + L;
+    d.innerHTML = `<div class="top"><span class="L"></span><span class="fx"></span></div>${handSVG(L, { size: 104 })}<div class="how"></div>`;
+    d.querySelector(".L").textContent = L;
+    d.querySelector(".fx").textContent = `${REACTS[L].emoji} ${REACTS[L].name}`;
+    d.querySelector(".how").textContent = how;
+    d.onclick = () => { $("help").classList.remove("open"); practice.start(L); };
+    cards.appendChild(d);
+  }
+  $("helpBtn").onclick = () => $("help").classList.toggle("open");
+  $("helpClose").onclick = () => $("help").classList.remove("open");
+}
+
+const practice = {
+  target: null,
+  start(L) {
+    this.target = L;
+    $("practice").hidden = false;
+    $("practice").classList.remove("win");
+    $("practiceBtn").classList.add("on");
+    $("pLetter").textContent = L;
+    $("pDia").innerHTML = handSVG(L, { size: 150 });
+    $("pHow").textContent = ALPHABET[L];
+  },
+  next() { const A = Object.keys(ALPHABET); this.start(A[(A.indexOf(this.target) + 1) % A.length]); },
+  stop() { this.target = null; $("practice").hidden = true; $("practiceBtn").classList.remove("on"); },
+  check(L) {
+    if (!this.target) return;
+    if (L === this.target) {
+      $("practice").classList.add("win");
+      setTimeout(() => { if (this.target === L) this.next(); }, 900);
+    } else toast(`That looked like ${L}, try ${this.target}`);
+  },
+};
+$("practiceBtn").onclick = () => (practice.target ? practice.stop() : practice.start("A"));
+$("pSkip").onclick = () => practice.next();
+$("pClose").onclick = () => practice.stop();
+
+// ================================================================ camera + model
 async function start() {
   startBtn.disabled = true;
   statusEl.textContent = "Starting camera…";
@@ -403,7 +564,7 @@ async function start() {
 
   startBtn.hidden = true;
   toggleBtn.hidden = false;
-  document.getElementById("spell").hidden = false;
+  $("spell").hidden = false;
   requestAnimationFrame(loop);
 }
 startBtn.addEventListener("click", start);
@@ -413,7 +574,7 @@ toggleBtn.addEventListener("click", () => {
   toggleBtn.textContent = hidden ? "Hide video" : "Show video";
 });
 
-// ---------------------------------------------------------------- geometry
+// ================================================================ geometry
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(canvas.clientWidth * dpr);
@@ -429,6 +590,18 @@ function toCanvas(nx, ny) {
   return { x: (canvas.width - dw) / 2 + nx * dw, y: (canvas.height - dh) / 2 + ny * dh };
 }
 
+// Finger extension from 3D world landmarks: tip-to-wrist vs knuckle-to-wrist distance.
+function reach(W, mcp, tip) {
+  const d = (a, b) => Math.hypot(W[a].x - W[b].x, W[a].y - W[b].y, W[a].z - W[b].z);
+  return d(0, tip) / (d(0, mcp) || 1);
+}
+function fingerShape(W) {
+  if (!W) return {};
+  const ext = [[5, 8], [9, 12], [13, 16], [17, 20]].map(([m, t]) => reach(W, m, t));
+  const up = ext.map(v => v > 1.55), down = ext.map(v => v < 1.45);
+  return { indexOnly: up[0] && down[1] && down[2] && down[3], pinkyOnly: up[3] && down[0] && down[1] && down[2] };
+}
+
 function detection(lm, world, handed) {
   const ids = [0, 5, 9, 13, 17];
   let nx = 0, ny = 0;
@@ -440,15 +613,15 @@ function detection(lm, world, handed) {
   let top = Infinity;
   for (const q of lm) top = Math.min(top, toCanvas(q.x, q.y).y);
   const tips = [4, 8, 12, 16, 20].map(i => toCanvas(lm[i].x, lm[i].y));
-  const sign = classifyHand(lm, world, handed, video.videoWidth, video.videoHeight);
-  return { x: p.x + ux * size * 0.35, y: p.y + uy * size * 0.35, r: size * 0.75, top, tips, sign,
-           pinky: tips[4], index: tips[1] };
+  return { x: p.x + ux * size * 0.35, y: p.y + uy * size * 0.35, r: size * 0.75, palm: size, top, tips,
+           sign: classifyHand(lm, world, handed, video.videoWidth, video.videoHeight), shape: fingerShape(world) };
 }
 
-// ---------------------------------------------------------------- tracking + sign smoothing
+// ================================================================ tracking
 function newHand(d) {
   return { x: d.x, y: d.y, r: d.r, tx: d.x, ty: d.y, tr: d.r, vx: 0, vy: 0, life: 0, seen: true, seed: Math.random() * 1000,
-           effect: "fire", acc: {}, hist: [], trail: [], letter: null, since: 0, committed: false, bolts: [], boltT: 0 };
+           votes: [], letter: null, since: 0, committed: false, lostAt: 0, speed: 0, ztrail: [], jtrail: [], bolts: [], boltT: 0,
+           reactUntil: 0, boltsUntil: 0, voidUntil: 0 };
 }
 
 function updateHands(dets, t) {
@@ -462,6 +635,12 @@ function updateHands(dets, t) {
     }
     const h = best && bestDist < Math.max(canvas.width, canvas.height) * 0.25 ? best : newHand(d);
     used.add(h);
+    if (h.lastDet) {
+      const dtd = Math.max(t - h.lastDet.t, 1e-3);
+      const sp = Math.hypot(d.x - h.lastDet.x, d.y - h.lastDet.y) / d.palm / dtd;
+      h.speed = h.speed * 0.6 + sp * 0.4;
+    }
+    h.lastDet = { t, x: d.x, y: d.y };
     h.tx = d.x; h.ty = d.y; h.tr = d.r; h.top = d.top; h.tips = d.tips; h.seen = true;
     observeSign(h, d, t);
     next.push(h);
@@ -470,68 +649,120 @@ function updateHands(dets, t) {
   hands = next;
 }
 
-// Majority vote over recent frames, plus motion for J and Z.
+// ================================================================ sign logic
+function commit(h, letter, t) {
+  h.letter = letter; h.committed = true; h.since = t;
+  setText(typed + letter);
+  playReact(letter, h);
+  practice.check(letter);
+}
+
+// Static letters: a confident majority over the last VOTE_WINDOW seconds, held still for HOLD_SECONDS.
 function observeSign(h, d, t) {
   h.raw = d.sign;
-  h.hist.push(d.sign.letter);
-  if (h.hist.length > 10) h.hist.shift();
-  h.trail.push({ t, ix: d.index.x, iy: d.index.y, px: d.pinky.x, py: d.pinky.y, r: d.r });
-  while (h.trail.length && t - h.trail[0].t > 0.9) h.trail.shift();
+  let l = d.sign.conf >= MIN_CONF ? d.sign.letter : null;
+  if (l === "J") l = "I";                                             // J and Z only come from motion
+  if (l === "Z") l = d.sign.second !== "Z" && d.sign.second !== "J" ? d.sign.second : null;
+  h.votes.push({ t, l });
+  while (h.votes.length && t - h.votes[0].t > VOTE_WINDOW) h.votes.shift();
+
+  if (detectMotion(h, d, t)) return;
 
   const counts = {};
-  for (const l of h.hist) if (l) counts[l] = (counts[l] || 0) + 1;
-  let letter = null, n = 0;
-  for (const [l, c] of Object.entries(counts)) if (c > n) { n = c; letter = l; }
-  if (n < 6) letter = null;
+  for (const v of h.votes) if (v.l) counts[v.l] = (counts[v.l] || 0) + 1;
+  let best = null, n = 0;
+  for (const [k, c] of Object.entries(counts)) if (c > n) { n = c; best = k; }
+  const stable = h.votes.length >= 4 && n / h.votes.length >= VOTE_SHARE && h.speed < STILL_SPEED ? best : null;
 
-  // J/Z: the hand shape plus a big fingertip motion.
-  const path = (kx, ky) => { let s = 0; for (let i = 1; i < h.trail.length; i++) s += Math.hypot(h.trail[i][kx] - h.trail[i - 1][kx], h.trail[i][ky] - h.trail[i - 1][ky]); return s / d.r; };
-  const recent = h.hist.slice(-8);
-  const share = set => recent.filter(l => set.includes(l)).length / Math.max(recent.length, 1);
-  if (share(["I", "J", "Y"]) > 0.5 && path("px", "py") > 2.2) { letter = "J"; h.motionUntil = t + 0.8; h.motionLetter = "J"; h.trail = []; }
-  else if (share(["Z", "D", "G", "L", "X"]) > 0.5 && path("ix", "iy") > 3.2) { letter = "Z"; h.motionUntil = t + 0.8; h.motionLetter = "Z"; h.trail = []; }
-  else if (t < (h.motionUntil || 0)) letter = h.motionLetter;
-  else if (letter === "J") letter = "I";
-  else if (letter === "Z") letter = d.sign.second === "Z" ? null : d.sign.second;
-
-  if (letter !== h.letter) { h.letter = letter; h.since = t; h.committed = false; }
-  const hold = letter === "J" || letter === "Z" ? 0 : HOLD_SECONDS;
-  if (letter && !h.committed && t - h.since >= hold) {
-    h.committed = true;
-    setText(typed + letter);
-    const fx = REACT_BY_LETTER[letter];
-    if (fx && fx !== h.effect) { h.effect = fx; toast(`${letter} → ${EFFECTS[fx].emoji} ${EFFECTS[fx].name}`); }
+  if (stable) {
+    h.lostAt = 0;
+    if (stable !== h.letter) { h.letter = stable; h.since = t; h.committed = false; }
+    else if (!h.committed && t - h.since >= HOLD_SECONDS) commit(h, stable, t);
+  } else {
+    // Brief wobbles don't reset the hold; a real change (or moving) does.
+    if (!h.lostAt) h.lostAt = t;
+    if (h.speed >= STILL_SPEED) { h.since = t; }
+    if (t - h.lostAt > 0.35) { h.letter = null; h.committed = false; }
   }
 }
 
-// ---------------------------------------------------------------- particles
-function emitAll(dt, t) {
-  for (const h of hands) {
-    const fx = FX[h.effect];
-    const n = {};
-    for (const [k, rate] of Object.entries(fx.rates)) {
-      h.acc[k] = (h.acc[k] || 0) + rate * h.r * dt * Math.max(h.life, 0.15);
-      n[k] = Math.floor(h.acc[k]);
-      h.acc[k] -= n[k];
+// Turn a fingertip trail into straight strokes: [{dir, len}] with dir in degrees (y down).
+function strokes(trail) {
+  const pts = [trail[0]];
+  for (const p of trail) { const q = pts[pts.length - 1]; if (Math.hypot(p.x - q.x, p.y - q.y) >= 0.12) pts.push(p); }
+  const out = [];
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i - 1].x, dy = pts[i].y - pts[i - 1].y, len = Math.hypot(dx, dy);
+    const dir = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const last = out[out.length - 1];
+    if (last && angDiff(last.dir, dir) < 35) { last.dir = avgAng(last.dir, last.len, dir, len); last.len += len; }
+    else out.push({ dir, len });
+  }
+  return out.filter(s => s.len >= 0.3);
+}
+const angDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+const avgAng = (a, wa, b, wb) => (Math.atan2(Math.sin(a * Math.PI / 180) * wa + Math.sin(b * Math.PI / 180) * wb, Math.cos(a * Math.PI / 180) * wa + Math.cos(b * Math.PI / 180) * wb) * 180) / Math.PI;
+
+// Z: horizontal → diagonal back-and-down → horizontal, every stroke at least MOTION_MIN hand-sizes.
+// Either mirror image counts, so it works whichever way the video is flipped.
+function isZ(st) {
+  for (let i = 0; i + 2 < st.length; i++) {
+    const [a, b, c] = st.slice(i, i + 3);
+    for (const [h, diag] of [[0, 135], [180, 45]]) {
+      if (angDiff(a.dir, h) < 30 && angDiff(c.dir, h) < 30 && angDiff(b.dir, diag) < 32 &&
+          a.len >= MOTION_MIN * 0.9 && b.len >= MOTION_MIN * 1.1 && c.len >= MOTION_MIN * 0.9) return true;
     }
-    fx.emit(h, n, t);
   }
+  return false;
+}
+// J: a long drop with the pinky, then a hook: what follows moves sideways and stops going down.
+function isJ(st) {
+  for (let i = 0; i + 1 < st.length; i++) {
+    if (angDiff(st[i].dir, 90) >= 30 || st[i].len < MOTION_MIN) continue;
+    let sx = 0, sy = 0;
+    for (const s of st.slice(i + 1)) { sx += s.len * Math.cos(s.dir * Math.PI / 180); sy += s.len * Math.sin(s.dir * Math.PI / 180); }
+    if (Math.abs(sx) >= 0.45 && sy < 0.6) return true;
+  }
+  return false;
 }
 
+function detectMotion(h, d, t) {
+  const add = (trail, ok, tip) => {
+    if (ok) trail.push({ t, x: tip.x / d.palm, y: tip.y / d.palm });
+    else if (trail.length && t - trail[trail.length - 1].t > 0.3) trail.length = 0;   // shape lost for a while: start over
+    while (trail.length && t - trail[0].t > 2.5) trail.shift();
+  };
+  add(h.ztrail, d.shape.indexOnly, d.tips[1]);
+  add(h.jtrail, d.shape.pinkyOnly, d.tips[4]);
+  let L = null;
+  if (h.ztrail.length > 8 && isZ(strokes(h.ztrail))) L = "Z";
+  else if (h.jtrail.length > 6 && isJ(strokes(h.jtrail))) L = "J";
+  if (!L) return false;
+  h.ztrail.length = 0; h.jtrail.length = 0;
+  commit(h, L, t);
+  h.lostAt = 0;
+  return true;
+}
+
+// ================================================================ simulation + drawing
 function step(dt, t) {
   let w = 0;
-  for (const p of particles) {
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
     p.age += dt;
-    if (p.age >= p.ttl) continue;
-    if (p.wob) p.vx += Math.sin(p.seed + p.age * 8 + t * 3) * p.wob * 2 * dt;
-    if (p.attract) {
-      const dx = p.attract.x - p.x, dy = p.attract.y - p.y, dd = Math.hypot(dx, dy) + 1;
-      p.vx += (dx / dd) * p.attract.r * 9 * dt; p.vy += (dy / dd) * p.attract.r * 9 * dt;
-      if (dd < p.attract.r * 0.12) p.age = p.ttl;
+    if (p.age >= p.ttl) { if (p.onDeath) p.onDeath(p); continue; }
+    if (p.fn) p.fn(p, dt, t);
+    if (!p.custom) {
+      if (p.wob) p.vx += Math.sin(p.seed + p.age * 8 + t * 3) * p.wob * 2 * dt;
+      if (p.attract) {
+        const R = p.attract.r || p.attract.R, dx = p.attract.x - p.x, dy = p.attract.y - p.y, dd = Math.hypot(dx, dy) + 1, k = R * 9 * dt;
+        p.vx += (dx / dd) * k; p.vy += (dy / dd) * k;
+        if (dd < R * 0.12) p.age = p.ttl;
+      }
+      p.vy += p.ay * dt;
+      if (p.drag) { const f = 1 - Math.min(p.drag * dt, 0.5); p.vx *= f; if (p.ay >= 0 || p.drag > 1) p.vy *= 1 - Math.min(p.drag * dt * 0.3, 0.5); }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
     }
-    p.vy += p.ay * dt;
-    if (p.drag) { p.vx *= 1 - Math.min(p.drag * dt, 0.5); if (p.kind !== "sprite" || p.drag > 1) p.vy *= 1 - Math.min(p.drag * dt * 0.3, 0.5); }
-    p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
     particles[w++] = p;
   }
   particles.length = w;
@@ -544,14 +775,16 @@ function heart(s) {
   ctx.bezierCurveTo(s * 0.35, -s * 0.65, s * 0.65, -s * 0.05, 0, s * 0.35);
   ctx.fill();
 }
-function star(s) {
+function star(s, points = 4, inner = 0.28) {
   ctx.beginPath();
-  for (let i = 0; i < 8; i++) { const a = (i * Math.PI) / 4, rr = i % 2 ? s * 0.28 : s; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+  for (let i = 0; i < points * 2; i++) { const a = (i * Math.PI) / points, rr = i % 2 ? s * inner : s; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
   ctx.closePath(); ctx.fill();
 }
+const fadeInOut = k => Math.min(1, k * 8) * Math.min(1, (1 - k) * 2.5);
 
 function drawParticle(p) {
   const k = p.age / p.ttl;
+  ctx.globalCompositeOperation = p.blend === ADD ? "lighter" : "source-over";
   switch (p.kind) {
     case "sprite": {
       const s = p.size * (1 + p.grow * k);
@@ -559,115 +792,174 @@ function drawParticle(p) {
       ctx.drawImage(p.sprite, p.x - s / 2, p.y - s / 2, s, s);
       break;
     }
-    case "heart": {
-      ctx.globalAlpha = Math.min(1, (1 - k) * 2) * Math.min(1, k * 8);
-      ctx.fillStyle = p.color;
+    case "heart":
+      ctx.globalAlpha = fadeInOut(k); ctx.fillStyle = p.color;
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot + Math.sin(p.seed + p.age * 4) * 0.25); heart(p.size); ctx.restore();
       break;
-    }
-    case "star": case "sparkle": {
-      ctx.globalAlpha = (1 - k) * (0.55 + 0.45 * Math.sin(p.seed + p.age * 22));
-      ctx.fillStyle = `rgb(${p.color})`;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); star(p.size * (p.kind === "sparkle" ? 0.8 : 1)); ctx.restore();
+    case "star":
+      ctx.globalAlpha = (1 - k) * (0.55 + 0.45 * Math.sin(p.seed + p.age * 22)); ctx.fillStyle = `rgb(${p.color})`;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); star(p.size); ctx.restore();
       break;
-    }
     case "bubble": {
       const pop = k > 0.9 ? 1 + (k - 0.9) * 6 : 1;
       ctx.globalAlpha = (k > 0.9 ? (1 - k) * 10 : 1) * Math.min(1, k * 6) * 0.85;
-      ctx.strokeStyle = `rgba(${p.color},0.9)`; ctx.lineWidth = Math.max(1, p.size * 0.12);
-      ctx.fillStyle = `rgba(${p.color},0.12)`;
+      ctx.strokeStyle = `rgba(${p.color},0.9)`; ctx.lineWidth = Math.max(1, p.size * 0.12); ctx.fillStyle = `rgba(${p.color},0.12)`;
       ctx.beginPath(); ctx.arc(p.x, p.y, p.size * pop, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = "rgba(255,255,255,0.8)";
       ctx.beginPath(); ctx.arc(p.x - p.size * 0.35, p.y - p.size * 0.35, p.size * 0.18, 0, Math.PI * 2); ctx.fill();
       break;
     }
     case "drop": {
-      ctx.globalAlpha = 1 - k;
-      ctx.fillStyle = `rgba(${p.color},0.9)`;
+      ctx.globalAlpha = 1 - k; ctx.fillStyle = `rgba(${p.color},0.9)`;
       const sp = Math.hypot(p.vx, p.vy) || 1;
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.vy, p.vx));
       ctx.beginPath(); ctx.ellipse(0, 0, p.size * (1 + Math.min(sp / (p.size * 20), 1.5)), p.size, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
       break;
     }
     case "confetti": {
-      ctx.globalAlpha = Math.min(1, (1 - k) * 3);
-      ctx.fillStyle = p.color;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      ctx.fillRect(-p.size / 2, -p.size / 4 * Math.abs(Math.cos(p.seed + p.age * 9)) - 0.5, p.size, p.size / 2 * Math.abs(Math.cos(p.seed + p.age * 9)) + 1);
+      ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.fillStyle = p.color;
+      const f = Math.abs(Math.cos(p.seed + p.age * 9));
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-p.size / 2, -(p.size / 4) * f - 0.5, p.size, (p.size / 2) * f + 1); ctx.restore();
+      break;
+    }
+    case "glyph": {
+      const pop = p.pop ? 1 + 0.35 * Math.max(0, 1 - k * 6) : 1;
+      ctx.globalAlpha = fadeInOut(k);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(-1, 1); ctx.rotate(-p.rot);   // canvas is mirrored: flip text back
+      ctx.font = `800 ${Math.round(p.size * (1 + p.grow * k) * pop)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      if (p.outline) { ctx.lineWidth = p.size * 0.12; ctx.strokeStyle = p.outline; ctx.lineJoin = "round"; ctx.strokeText(p.text, 0, 0); }
+      ctx.fillStyle = p.color || "#fff"; ctx.fillText(p.text, 0, 0);
       ctx.restore();
+      break;
+    }
+    case "ring": {
+      const e = 1 - (1 - k) * (1 - k), rad = p.r0 + (p.r1 - p.r0) * e;
+      ctx.globalAlpha = (1 - k) * 0.9; ctx.strokeStyle = `rgb(${p.color})`; ctx.lineWidth = Math.max(1, p.lw * (1 - k));
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, rad, rad * (p.squash || 1), 0, 0, Math.PI * 2); ctx.stroke();
+      break;
+    }
+    case "shard":
+      ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.beginPath(); ctx.moveTo(p.size, 0); ctx.lineTo(-p.size * 0.5, p.size * 0.28); ctx.lineTo(-p.size * 0.4, -p.size * 0.3); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      break;
+    case "diamond": {
+      ctx.globalAlpha = Math.min(1, (1 - k) * 3);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      const s = p.size;
+      ctx.fillStyle = `hsl(${p.hue},90%,80%)`;
+      ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.7, -s * 0.25); ctx.lineTo(0, s); ctx.lineTo(-s * 0.7, -s * 0.25); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.7, -s * 0.25); ctx.lineTo(0, -s * 0.1); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      break;
+    }
+    case "coin": {
+      ctx.globalAlpha = Math.min(1, (1 - k) * 4);
+      const wdt = Math.max(0.12, Math.abs(Math.cos(p.rot)));
+      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(wdt, 1);
+      ctx.fillStyle = "#ffcc33"; ctx.strokeStyle = "#a86b00"; ctx.lineWidth = p.size * 0.18;
+      ctx.beginPath(); ctx.arc(0, 0, p.size, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fff2a8"; ctx.beginPath(); ctx.arc(-p.size * 0.3, -p.size * 0.3, p.size * 0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      break;
+    }
+    case "shuriken":
+      ctx.globalAlpha = Math.min(1, (1 - k) * 4);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = "#c9d2db"; star(p.size, 4, 0.3);
+      ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(0, 0, p.size * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      break;
+    case "flake":
+      ctx.globalAlpha = 0.9 * Math.min(1, (1 - k) * 6); ctx.strokeStyle = "#f2f8ff"; ctx.lineWidth = Math.max(1, p.size * 0.14); ctx.lineCap = "round";
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.beginPath();
+      for (let i = 0; i < 3; i++) { const a = (i * Math.PI) / 3, c = Math.cos(a) * p.size, s = Math.sin(a) * p.size; ctx.moveTo(-c, -s); ctx.lineTo(c, s); }
+      ctx.stroke(); ctx.restore();
+      break;
+    case "rays": {
+      const e = Math.min(1, k * 4), fade = Math.min(1, (1 - k) * 3);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.age * 0.8);
+      for (let i = 0; i < 14; i++) {
+        ctx.rotate((Math.PI * 2) / 14);
+        const len = p.size * e * (i % 2 ? 0.75 : 1);
+        const g = ctx.createLinearGradient(0, 0, len, 0);
+        g.addColorStop(0, "rgba(255,230,120,0.9)"); g.addColorStop(1, "rgba(255,180,40,0)");
+        ctx.globalAlpha = fade * 0.8; ctx.fillStyle = g;
+        ctx.beginPath(); ctx.moveTo(0, -p.size * 0.06); ctx.lineTo(len, 0); ctx.lineTo(0, p.size * 0.06); ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
+    case "arc": {
+      const e = Math.min(1, k * 3.5), fade = Math.min(1, (1 - k) * 2.5);
+      const cols = ["#ff3b30", "#ff9500", "#ffcc00", "#34c759", "#32ade6", "#5856d6", "#af52de"];
+      ctx.globalAlpha = 0.75 * fade; ctx.lineWidth = p.size * 0.08;
+      cols.forEach((c, i) => {
+        ctx.strokeStyle = c;
+        ctx.beginPath(); ctx.arc(p.x, p.y + p.size * 0.2, p.size * (1 - i * 0.08), Math.PI, Math.PI + Math.PI * e); ctx.stroke();
+      });
       break;
     }
   }
 }
 
 function drawCore(h, t) {
-  const fx = FX[h.effect];
   const flick = 0.85 + 0.15 * Math.sin(t * 23 + h.seed) * Math.sin(t * 7.3 + h.seed * 2);
-  const r = h.r * flick * Math.max(h.life, 0);
+  const r = h.r * flick * Math.max(h.life, 0) * (h.voidUntil > t ? 0.15 : h.reactUntil > t ? 0.7 : 1);
   if (r <= 1) return;
-  if (fx.dark || h.effect === "smoke") {
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = (h.effect === "void" ? 0.95 : 0.5) * h.life;
-    const s = h.effect === "void" ? r * 1.3 : r * 2.2;
-    ctx.drawImage(S.darksmoke, h.x - s / 2, h.y - s / 2, s, s);
-    if (h.effect === "void") {
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = 0.6 * h.life;
-      ctx.strokeStyle = "rgba(170,120,255,0.8)"; ctx.lineWidth = Math.max(2, r * 0.05);
-      ctx.beginPath(); ctx.arc(h.x, h.y, r * 0.45, 0, Math.PI * 2); ctx.stroke();
-    }
-    return;
-  }
-  const [cr, cg, cb] = fx.core || [255, 255, 255];
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = (fx.coreAlpha ?? 1) * 0.35 * h.life;
+  ctx.globalAlpha = 0.35 * h.life;
   let g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, r * 3);
-  if (h.effect === "rainbow") {
-    const hue = (t * 120) % 360;
-    g.addColorStop(0, `hsla(${hue},100%,65%,0.6)`); g.addColorStop(0.4, `hsla(${(hue + 60) % 360},100%,55%,0.2)`); g.addColorStop(1, "rgba(0,0,0,0)");
-  } else if (fx.core) {
-    g.addColorStop(0, `rgba(${cr},${cg},${cb},0.6)`); g.addColorStop(0.4, `rgba(${cr},${cg},${cb},0.2)`); g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-  } else return;
+  g.addColorStop(0, "rgba(255,140,40,0.6)"); g.addColorStop(0.4, "rgba(255,70,0,0.2)"); g.addColorStop(1, "rgba(255,40,0,0)");
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(h.x, h.y, r * 3, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = (fx.coreAlpha ?? 1) * 0.7 * h.life;
+  ctx.globalAlpha = 0.7 * h.life;
   g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, r * 0.7);
-  g.addColorStop(0, "rgba(255,255,245,1)");
-  g.addColorStop(0.35, h.effect === "rainbow" ? "rgba(255,255,255,0.6)" : `rgba(${Math.min(255, cr + 80)},${Math.min(255, cg + 80)},${Math.min(255, cb + 80)},0.8)`);
-  g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+  g.addColorStop(0, "rgba(255,255,240,1)"); g.addColorStop(0.35, "rgba(255,220,120,0.8)"); g.addColorStop(1, "rgba(255,100,0,0)");
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(h.x, h.y, r * 0.7, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawVoid(h, t) {
+  if (h.voidUntil <= t || h.life <= 0) return;
+  const k = Math.max(0, Math.min(1, (h.voidUntil - t) * 3, (1.4 - (h.voidUntil - t)) * 5));
+  const s = h.r * 2.2;
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.95 * k;
+  ctx.drawImage(S.darksmoke, h.x - s / 2, h.y - s / 2, s, s);
+  ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.7 * k;
+  ctx.strokeStyle = "rgb(170,120,255)"; ctx.lineWidth = Math.max(2, h.r * 0.05);
+  ctx.beginPath(); ctx.arc(h.x, h.y, h.r * (0.42 + 0.04 * Math.sin(t * 20)), 0, Math.PI * 2); ctx.stroke();
 }
 
 function jagged(x1, y1, x2, y2, rough) {
   const pts = [[x1, y1], [x2, y2]];
   for (let it = 0; it < 4; it++) {
     for (let i = pts.length - 1; i > 0; i--) {
-      const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
-      const len = Math.hypot(bx - ax, by - ay);
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, by - ay);
       pts.splice(i, 0, [(ax + bx) / 2 + (Math.random() - 0.5) * len * rough, (ay + by) / 2 + (Math.random() - 0.5) * len * rough]);
     }
   }
   return pts;
 }
 function drawBolts(h, t) {
-  if (!FX[h.effect].bolts || !h.tips || h.life <= 0) return;
+  if (h.boltsUntil <= t || !h.tips || h.life <= 0) return;
   if (t - h.boltT > 0.06) {
     h.boltT = t;
     h.bolts = [];
-    const n = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++) {
-      const tip = h.tips[Math.floor(Math.random() * 5)];
+    for (let i = 0, n = 2 + Math.floor(Math.random() * 3); i < n; i++) {
       if (Math.random() < 0.35) {
-        const a = Math.random() * Math.PI * 2, rr = h.r * rnd(1.2, 2.2);
+        const a = Math.random() * Math.PI * 2, rr = h.r * rnd(1.2, 2.4);
         h.bolts.push(jagged(h.x, h.y, h.x + Math.cos(a) * rr, h.y + Math.sin(a) * rr, 0.45));
-      } else h.bolts.push(jagged(h.x, h.y, tip.x, tip.y, 0.4));
+      } else { const tip = pick(h.tips); h.bolts.push(jagged(h.x, h.y, tip.x, tip.y, 0.4)); }
     }
   }
   ctx.globalCompositeOperation = "lighter";
   for (const [w, col, a] of [[h.r * 0.12, "120,90,255", 0.35], [h.r * 0.04, "200,190,255", 0.8], [Math.max(1, h.r * 0.012), "255,255,255", 1]]) {
-    ctx.globalAlpha = a * h.life;
-    ctx.strokeStyle = `rgb(${col})`; ctx.lineWidth = w; ctx.lineJoin = "round";
+    ctx.globalAlpha = a * h.life; ctx.strokeStyle = `rgb(${col})`; ctx.lineWidth = w; ctx.lineJoin = "round";
     for (const b of h.bolts) { ctx.beginPath(); for (const [x, y] of b) ctx.lineTo(x, y); ctx.stroke(); }
   }
 }
@@ -675,14 +967,12 @@ function drawBolts(h, t) {
 // The canvas is mirrored with CSS, so text is drawn flipped back to read normally.
 function drawLabel(h, t) {
   if (!h.seen || !h.letter) return;
-  const x = h.tx, y = Math.max(h.top - h.r * 0.9, h.r * 0.7), R = Math.max(20, h.r * 0.3);
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 1;
+  const x = h.tx, y = Math.max(h.top - h.r * 0.7, h.r * 0.6), R = Math.max(20, h.r * 0.3);
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
   ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1);
   ctx.fillStyle = "rgba(0,0,0,0.55)";
   ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
-  const hold = h.letter === "J" || h.letter === "Z" ? 0 : HOLD_SECONDS;
-  const prog = h.committed ? 1 : Math.min(1, (t - h.since) / Math.max(hold, 1e-3));
+  const prog = h.committed ? 1 : Math.min(1, (t - h.since) / HOLD_SECONDS);
   ctx.strokeStyle = h.committed ? "#7dff9a" : "#ffb347"; ctx.lineWidth = Math.max(3, R * 0.12); ctx.lineCap = "round";
   ctx.beginPath(); ctx.arc(0, 0, R - ctx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2); ctx.stroke();
   ctx.fillStyle = "#fff"; ctx.font = `700 ${Math.round(R * 1.1)}px system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -690,24 +980,20 @@ function drawLabel(h, t) {
   ctx.restore();
 }
 
-const LETTERS_BEST = s => s.probs ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[s.probs.indexOf(Math.max(...s.probs))] : "-";
-
-// ---------------------------------------------------------------- main loop
-function loop(now) {
-  const dt = Math.min((now - lastFrame) / 1000, 0.05);
-  lastFrame = now;
-  const t = now / 1000;
+// ================================================================ main loop
+function frame(ms, detect) {
+  const dt = Math.min((ms - lastFrame) / 1000, 0.05);
+  lastFrame = ms;
+  const t = now();
 
   if (canvas.width !== Math.round(canvas.clientWidth * Math.min(devicePixelRatio || 1, 2))) resize();
 
-  if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+  if (detect && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
-    const t0d = performance.now(); const res = landmarker.detectForVideo(video, now); if (DEBUG) { window.__det = (window.__det || []); window.__det.push([Math.round(now), Math.round(performance.now() - t0d), res.landmarks.length]); }
-    const dets = (res.landmarks || []).map((lm, i) => detection(lm, res.worldLandmarks?.[i], res.handedness?.[i]?.[0]?.categoryName));
-    updateHands(dets, t);
+    const res = landmarker.detectForVideo(video, ms);
+    updateHands((res.landmarks || []).map((lm, i) => detection(lm, res.worldLandmarks?.[i], res.handedness?.[i]?.[0]?.categoryName)), t);
   }
 
-  // Smooth motion toward the latest detection; fade hands in and out.
   const k = 1 - Math.pow(0.0005, dt);
   hands = hands.filter(h => {
     const nx = h.x + (h.tx - h.x) * k, ny = h.y + (h.ty - h.y) * k;
@@ -717,27 +1003,47 @@ function loop(now) {
     return h.life > 0;
   });
 
-  emitAll(dt, t);
+  for (const h of hands) emitFire(h, dt);
+  tickReacts(dt);
   step(dt, t);
 
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 1;
+  // Screen shake (quake / explosion).
+  if (shakeUntil > t) wrap.style.transform = `translate(${(rnd(-1, 1) * shakeAmp) / devicePixelRatio}px, ${(rnd(-1, 1) * shakeAmp) / devicePixelRatio}px)`;
+  else if (wrap.style.transform) { wrap.style.transform = ""; shakeAmp = 0; }
+
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (const p of particles) if (p.blend === NORMAL) drawParticle(p);
+  for (const h of hands) drawVoid(h, t);
   for (const h of hands) drawCore(h, t);
-  ctx.globalCompositeOperation = "lighter";
   for (const p of particles) if (p.blend === ADD) drawParticle(p);
   for (const h of hands) drawBolts(h, t);
   for (const h of hands) drawLabel(h, t);
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
+  if (flash > 0.01) {
+    ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = flash; ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    flash *= Math.pow(0.002, dt);
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
 
+  const seen = hands.filter(h => h.seen);
+  statusEl.textContent = seen.length
+    ? (DEBUG ? seen.map(h => `${h.raw?.letter || "?"} ${((h.raw?.conf || 0) * 100).toFixed(0)}% · speed ${h.speed.toFixed(1)}`).join("   ") : `${seen.length} hand${seen.length > 1 ? "s" : ""}`)
+    : "Hold up your hands";
   if (DEBUG) window.__hands = hands;
-  const n = hands.filter(h => h.seen).length;
-  statusEl.textContent = n ? hands.filter(h => h.seen).map(h => EFFECTS[h.effect].emoji +
-    (DEBUG && h.raw ? ` ${h.raw.letter || "?"} (${LETTERS_BEST(h.raw)} ${(h.raw.conf * 100).toFixed(0)}%)` : "")).join("   ") : "Hold up your hands";
+}
+function loop(ms) { frame(ms, true); requestAnimationFrame(loop); }
 
-  requestAnimationFrame(loop);
+// Test hooks (#debug only): fire a react or feed fake fingertip motion without a camera.
+if (DEBUG) {
+  window.__demo = () => { const run = ms => { frame(ms, false); requestAnimationFrame(run); }; requestAnimationFrame(run); };
+  window.__react = (L, x = canvas.width / 2, y = canvas.height * 0.6, r = 110) => {
+    let h = hands[0];
+    if (!h) { h = newHand({ x, y, r }); h.life = 1; h.tips = [0, 1, 2, 3, 4].map(i => ({ x: x - 60 + i * 30, y: y - 150 })); h.top = y - 160; hands.push(h); }
+    h.seen = true;
+    playReact(L, h);
+  };
+  window.__motion = { strokes, isZ, isJ };
 }
 </script>
 </body>

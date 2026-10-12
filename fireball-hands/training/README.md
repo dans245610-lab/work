@@ -11,3 +11,6 @@
 4. `python3 export.py` → writes `../asl.js`.
 
 Last run: 8,645 photos with a detected hand, 94.4% accuracy on a held-out 1/7.
+
+`../diagrams.js` (the hand-shape diagrams in the Guide) comes from the same landmarks:
+`python3 diagrams.py` picks, for each letter, the most typical real hand (medoid) and rotates it to a palm-facing view.
