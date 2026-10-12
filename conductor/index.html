@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maestro</title>
+<style>
+  :root {
+    --bg: #0a0806; --fg: #f6efe2; --muted: #c2b49b; --accent: #e8b34a; --good: #7ee0a1; --bad: #ff8a7a;
+    --panel: rgba(20, 15, 9, 0.9); --line: rgba(240, 210, 150, 0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: Georgia, "Iowan Old Style", serif; overflow: hidden; }
+  video, canvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  video { transform: scaleX(-1); filter: brightness(0.55) sepia(0.25); }
+  button { font: 600 15px system-ui, sans-serif; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: var(--fg); padding: 10px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #1a1205; }
+  button.sel { border-color: var(--accent); background: rgba(232, 179, 74, 0.18); }
+
+  #hud { position: fixed; top: 12px; left: 16px; right: 16px; display: flex; gap: 14px; align-items: flex-start; z-index: 3; pointer-events: none; font-family: system-ui, sans-serif; }
+  #hud .big { font: 800 28px system-ui; }
+  #hud .sub { color: var(--muted); font-size: 13px; }
+  #hud .spacer { flex: 1; }
+  #hud button { pointer-events: auto; }
+
+  #figure { position: fixed; right: 16px; top: 64px; width: 210px; z-index: 3; padding: 10px 12px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); text-align: center; font-family: system-ui, sans-serif; }
+  #figure .cap { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  #figure .sig { font: 700 26px Georgia, serif; }
+  #figure svg { width: 180px; height: 180px; display: block; margin: 0 auto; }
+  #figure .words { font-size: 13px; color: var(--muted); }
+  #detect { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 14px; }
+  #detect b { font-size: 20px; font-family: Georgia, serif; }
+
+  #overlay { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 8, 6, 0.75); overflow-y: auto; }
+  #overlay[hidden] { display: none; }
+  .card { width: min(720px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-height: 100%; overflow-y: auto; }
+  .card h1 { margin: 0 0 4px; font-size: 32px; }
+  .card h2 { margin: 18px 0 8px; font: 600 12px system-ui; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .card p { color: var(--muted); line-height: 1.5; margin: 6px 0; font: 15px system-ui, sans-serif; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opts button small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; margin-top: 2px; }
+  .patterns { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .pat { border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; font-family: system-ui; }
+  .pat svg { width: 120px; height: 120px; }
+  .pat .nm { font: 700 20px Georgia, serif; }
+  .pat .w { font-size: 12px; color: var(--muted); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 16px; font-family: system-ui; }
+  label { color: var(--muted); font: 14px system-ui; display: flex; gap: 8px; align-items: center; }
+  input[type=range] { width: 160px; accent-color: var(--accent); }
+  .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; font-family: system-ui; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .stat .v { font: 800 24px system-ui; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .grade { font: 900 80px Georgia, serif; color: var(--accent); line-height: 1; }
+  #tips { font: 14px system-ui; color: var(--fg); line-height: 1.5; padding-left: 18px; }
+  @media (max-width: 640px) { #figure { width: 150px; } #figure svg { width: 120px; height: 120px; } }
+</style>
+</head>
+<body>
+<video id="video" playsinline muted></video>
+<canvas id="fx"></canvas>
+
+<div id="hud" hidden>
+  <div><div class="big" id="hBig">—</div><div class="sub" id="hSub"></div></div>
+  <div class="spacer"></div>
+  <button id="menuBtn">Menu</button>
+</div>
+
+<div id="figure" hidden>
+  <div class="cap" id="figCap">Conduct</div>
+  <div class="sig" id="figSig">4/4</div>
+  <div id="figSvg"></div>
+  <div class="words" id="figWords"></div>
+  <div id="detect"><span class="cap">Camera hears</span><br><b id="dSig">—</b> <span id="dBpm"></span></div>
+</div>
+
+<div id="overlay">
+  <div class="card" id="menu">
+    <h1>🎼 Maestro</h1>
+    <p>Learn the beat patterns real conductors use. The camera tracks your conducting hand, finds each beat (the point where your hand changes direction), and grades the direction and timing against the pattern.</p>
+    <h2>The patterns</h2>
+    <div class="patterns" id="patterns"></div>
+    <p>Each beat is a stroke in one direction, and the beat lands where the stroke ends. Make each stroke clear, about a hand-length or more, and change direction crisply on the beat.</p>
+    <h2>Time signature</h2>
+    <div class="opts" id="sigs"></div>
+    <h2>Mode</h2>
+    <div class="opts" id="modes"></div>
+    <div class="row">
+      <label>Tempo <input type="range" id="tempo" min="50" max="110" value="70"> <span id="tempoV">70</span> bpm</label>
+      <label><input type="checkbox" id="lefty"> Left-handed</label>
+    </div>
+    <div class="row">
+      <button class="primary" id="startBtn">Start camera</button>
+      <span id="status" style="color:var(--muted);font:14px system-ui"></span>
+    </div>
+  </div>
+  <div class="card" id="results" hidden>
+    <h1 id="rTitle">Lesson complete</h1>
+    <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+      <div class="grade" id="rGrade">A</div>
+      <div class="results" id="rStats" style="flex:1"></div>
+    </div>
+    <h2>Notes</h2>
+    <ul id="tips"></ul>
+    <div class="row"><button class="primary" id="againBtn">Try again</button><button id="backBtn">Back to menu</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { startCamera, loadHandModel, fitCanvas, detectHands } from "../shared/handcam.js";
+
+// ================================================================ patterns
+// Direction each beat's stroke travels *into* the beat. In = toward your body's centre, Out = away.
+const PATTERNS = {
+  2: { name: "2/4", seq: ["D", "U"], words: "down · up", example: "marches" },
+  3: { name: "3/4", seq: ["D", "O", "U"], words: "down · out · up", example: "waltzes" },
+  4: { name: "4/4", seq: ["D", "I", "O", "U"], words: "down · in · out · up", example: "most music" },
+};
+const WORD = { D: "down", U: "up", I: "in", O: "out" };
+// Beat points of each figure (right hand, as seen in the mirrored video: "in" is to the left).
+const FIG = {
+  2: [[44, 86], [56, 14]],
+  3: [[50, 86], [86, 64], [50, 14]],
+  4: [[50, 86], [14, 64], [86, 64], [50, 14]],
+};
+const BEAT_TOL = 0.42;     // timing window: ±this fraction of a beat
+const MIN_STROKE = 0.45;   // a stroke must travel at least this many hand-lengths to count
+const TURN_DEG = 70;       // direction change that marks a beat
+const LATENCY = 0.1;       // camera + smoothing delay compensation (s)
+
+function figureSVG(sig, { size = 180, lefty = false, active = -1, ghost = null } = {}) {
+  const pts = FIG[sig].map(([x, y]) => [lefty ? 100 - x : x, y]);
+  const seq = PATTERNS[sig].seq;
+  let s = `<svg viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="${PATTERNS[sig].name} beat pattern">
+    <defs><marker id="ah${sig}${active}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e8b34a"/></marker></defs>`;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[(i - 1 + pts.length) % pts.length], [x2, y2] = pts[i];
+    const mx = (x1 + x2) / 2 + (y2 - y1) * 0.12, my = (y1 + y2) / 2 - (x2 - x1) * 0.12;
+    s += `<path d="M${x1},${y1} Q${mx},${my} ${x2},${y2}" fill="none" stroke="${i === active ? "#f6efe2" : "#e8b34a"}" stroke-width="${i === active ? 3 : 1.8}" stroke-linecap="round" marker-end="url(#ah${sig}${active})" opacity="${i === active ? 1 : 0.75}"/>`;
+  }
+  pts.forEach(([x, y], i) => {
+    s += `<circle cx="${x}" cy="${y}" r="7.5" fill="${i === active ? "#e8b34a" : "#2a2014"}" stroke="#e8b34a" stroke-width="1.5"/>` +
+         `<text x="${x}" y="${y + 3.5}" font-size="10" font-weight="700" font-family="system-ui" text-anchor="middle" fill="${i === active ? "#1a1205" : "#f6efe2"}">${i + 1}</text>`;
+  });
+  if (ghost) s += `<circle cx="${lefty ? 100 - ghost[0] : ghost[0]}" cy="${ghost[1]}" r="4" fill="#fff"><title>guide</title></circle>`;
+  return s + `</svg>`;
+}
+
+// ================================================================ beat detection
+// The hand path is split into strokes. A beat is where a stroke ends: a sharp turn (or a stop)
+// after travelling at least MIN_STROKE hand-lengths. Each beat carries the direction of its stroke.
+function createBeatTracker(onBeat) {
+  const T = { trail: [], s: 0, sm: null, palm: null, pausedAt: null };
+  T.reset = () => { T.trail = []; T.s = 0; T.sm = null; };
+  T.push = (t, x, y, palm, lefty) => {
+    T.palm = T.palm ? T.palm * 0.9 + palm * 0.1 : palm;
+    T.sm = T.sm ? { x: T.sm.x + (x - T.sm.x) * 0.55, y: T.sm.y + (y - T.sm.y) * 0.55 } : { x, y };
+    const P = { t, x: T.sm.x / T.palm, y: T.sm.y / T.palm };       // hand-length units
+    T.trail.push(P);
+    while (T.trail.length > 90) { T.trail.shift(); T.s = Math.max(0, T.s - 1); }
+    const S = T.trail[T.s], C = P;
+    let bi = T.trail.length - 1;
+    while (bi > T.s && C.t - T.trail[bi].t < 0.09) bi--;
+    const B = T.trail[bi];
+    const sx = B.x - S.x, sy = B.y - S.y, sl = Math.hypot(sx, sy);
+    const rx = C.x - B.x, ry = C.y - B.y, rl = Math.hypot(rx, ry);
+    if (sl >= MIN_STROKE && rl >= 0.12) {
+      const ang = Math.acos(Math.max(-1, Math.min(1, (sx * rx + sy * ry) / (sl * rl)))) * 180 / Math.PI;
+      if (ang > TURN_DEG) return T.emit(sx / sl, sy / sl, lefty);
+    }
+    // A stop also ends a stroke.
+    const old = T.trail.findLast(q => C.t - q.t >= 0.18);
+    if (old && T.trail.indexOf(old) >= T.s && Math.hypot(C.x - old.x, C.y - old.y) < 0.1) {
+      const tx = old.x - S.x, ty = old.y - S.y, tl = Math.hypot(tx, ty);
+      if (tl >= MIN_STROKE) T.emit(tx / tl, ty / tl, lefty);
+    }
+  };
+  // The beat is where the stroke got furthest along its direction. Hands slow down into it, so among
+  // the points close to that furthest point, take the one where the hand moved slowest.
+  T.emit = (ux, uy, lefty) => {
+    const S = T.trail[T.s], proj = [];
+    let far = -Infinity;
+    for (let i = T.s; i < T.trail.length; i++) {
+      const d = (T.trail[i].x - S.x) * ux + (T.trail[i].y - S.y) * uy;
+      proj.push(d); far = Math.max(far, d);
+    }
+    const near = proj.map((d, i) => (far - d < 0.12 ? T.s + i : -1)).filter(i => i >= 0);
+    const speed = i => {
+      const a = T.trail[Math.max(i - 1, 0)], b = T.trail[Math.min(i + 1, T.trail.length - 1)];
+      return Math.hypot(b.x - a.x, b.y - a.y) / Math.max(b.t - a.t, 1e-3);
+    };
+    let best = near[0];
+    for (const i of near) if (speed(i) < speed(best)) best = i;
+    T.emitAt(best, ux, uy, lefty);
+  };
+  T.emitAt = (i, ux, uy, lefty) => {
+    const S = T.trail[T.s], E = T.trail[i];
+    const dx = E.x - S.x, dy = E.y - S.y;
+    T.s = i;
+    onBeat({ t: E.t, dir: classify(dx, dy, lefty), len: Math.hypot(dx, dy), x: E.x * T.palm, y: E.y * T.palm });
+  };
+  return T;
+}
+function classify(dx, dy, lefty) {
+  const a = Math.atan2(dy, dx) * 180 / Math.PI;      // screen: +y is down
+  if (a > 35 && a < 145) return "D";
+  if (a < -35 && a > -145) return "U";
+  const left = Math.abs(a) >= 145;
+  return left !== lefty ? "I" : "O";                  // right hand: in = toward screen left
+}
+// Which pattern do the last strokes look like? Best pattern + rotation over the recent sequence.
+function recognize(seq) {
+  const recent = seq.slice(-8);
+  if (recent.length < 5) return null;
+  let best = null;
+  for (const [sig, p] of Object.entries(PATTERNS)) {
+    for (let r = 0; r < p.seq.length; r++) {
+      let m = 0;
+      recent.forEach((d, i) => { if (d === p.seq[(i + r) % p.seq.length]) m++; });
+      const score = m / recent.length;
+      if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && p.seq.length > PATTERNS[best.sig].seq.length)) best = { sig: +sig, score };
+    }
+  }
+  return best;
+}
+
+// ================================================================ audio: click + a small orchestra
+let AC = null, master = null;
+function initAudio() {
+  if (AC) return;
+  AC = new AudioContext();
+  const comp = AC.createDynamicsCompressor(); comp.connect(AC.destination);
+  master = AC.createGain(); master.gain.value = 0.7; master.connect(comp);
+  // Short synthetic hall reverb.
+  const len = AC.sampleRate * 1.8, ir = AC.createBuffer(2, len, AC.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+  const verb = AC.createConvolver(); verb.buffer = ir;
+  const wet = AC.createGain(); wet.gain.value = 0.35;
+  master.connect(verb); verb.connect(wet); wet.connect(comp);
+}
+function click(when, accent) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = "square"; o.frequency.value = accent ? 1760 : 1320;
+  g.gain.setValueAtTime(accent ? 0.22 : 0.13, when); g.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
+  o.connect(g); g.connect(AC.destination); o.start(when); o.stop(when + 0.06);
+}
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function strings(notes, when, dur, vel = 0.06) {
+  for (const m of notes) for (const det of [-6, 5]) {
+    const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+    o.type = "sawtooth"; o.frequency.value = mtof(m); o.detune.value = det;
+    f.type = "lowpass"; f.frequency.value = 1400;
+    g.gain.setValueAtTime(0.0001, when); g.gain.linearRampToValueAtTime(vel, when + 0.06);
+    g.gain.setTargetAtTime(0, when + dur * 0.85, 0.12);
+    o.connect(f); f.connect(g); g.connect(master); o.start(when); o.stop(when + dur + 0.6);
+  }
+}
+function pluckBass(m, when, dur) {
+  const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+  o.type = "triangle"; o.frequency.value = mtof(m);
+  f.type = "lowpass"; f.frequency.value = 600;
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.35, when + 0.02); g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+  o.connect(f); f.connect(g); g.connect(master); o.start(when); o.stop(when + dur + 0.05);
+}
+function timpani(when) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.frequency.setValueAtTime(110, when); o.frequency.exponentialRampToValueAtTime(70, when + 0.4);
+  g.gain.setValueAtTime(0.5, when); g.gain.exponentialRampToValueAtTime(0.001, when + 0.6);
+  o.connect(g); g.connect(master); o.start(when); o.stop(when + 0.65);
+}
+function bell(m, when) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = "triangle"; o.frequency.value = mtof(m);
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.12, when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, when + 0.9);
+  o.connect(g); g.connect(master); o.start(when); o.stop(when + 1);
+}
+// I – IV – V – I in C; the melody walks the chord tones.
+const PROG = [{ root: 36, chord: [60, 64, 67] }, { root: 41, chord: [60, 65, 69] }, { root: 43, chord: [59, 62, 67] }, { root: 36, chord: [60, 64, 67] }];
+const MELODY = [[72, 76, 79, 76], [77, 76, 74, 72], [74, 71, 74, 79], [76, 74, 72, 72]];
+function playBeat(bar, beat, sig, when, dur) {
+  const p = PROG[bar % 4];
+  if (beat === 0) { pluckBass(p.root, when, dur * 1.5); timpani(when); strings(p.chord, when, dur * sig, 0.045); }
+  else if (sig === 3) strings(p.chord.map(m => m + 12), when, dur * 0.6, 0.03);        // oom-pah-pah
+  else if (beat === 2 && sig === 4) pluckBass(p.root + 7, when, dur);
+  bell(MELODY[bar % 4][beat % 4] + (sig === 3 && beat === 2 ? 2 : 0), when);
+}
+
+// ================================================================ state
+const $ = id => document.getElementById(id);
+const video = $("video"), canvas = $("fx"), ctx = canvas.getContext("2d");
+const DEBUG = location.hash.includes("debug");
+let sig = 4, modeChoice = "lesson", bpm = 70, lefty = false;
+let landmarker = null, started = false, mode = "menu";   // menu | lesson | follow | results
+let lesson = null, follow = null, beatsSeen = [], marks = [], trail = [];
+let fakeHands = null;
+
+const tracker = createBeatTracker(onBeat);
+
+{
+  for (const k of [2, 3, 4]) {
+    const d = document.createElement("div");
+    d.className = "pat";
+    d.innerHTML = `<div class="nm">${PATTERNS[k].name}</div>${figureSVG(k, { size: 120 })}<div class="w">${PATTERNS[k].words}<br>${PATTERNS[k].example}</div>`;
+    $("patterns").appendChild(d);
+  }
+  const pick = (box, attr, val, set) => { set(val); for (const b of $(box).children) b.classList.toggle("sel", b.dataset[attr] === String(val)); };
+  for (const k of [2, 3, 4]) {
+    const b = document.createElement("button"); b.dataset.s = k; b.textContent = PATTERNS[k].name;
+    b.onclick = () => pick("sigs", "s", k, v => (sig = v)); $("sigs").appendChild(b);
+  }
+  pick("sigs", "s", 4, v => (sig = v));
+  for (const [k, name, note] of [["lesson", "Lesson", "follow the click, get graded"], ["follow", "Orchestra follows you", "the music plays on your beats"]]) {
+    const b = document.createElement("button"); b.dataset.m = k; b.innerHTML = `${name}<small>${note}</small>`;
+    b.onclick = () => pick("modes", "m", k, v => (modeChoice = v)); $("modes").appendChild(b);
+  }
+  pick("modes", "m", "lesson", v => (modeChoice = v));
+  $("tempo").oninput = e => { bpm = +e.target.value; $("tempoV").textContent = bpm; };
+  $("lefty").onchange = e => (lefty = e.target.checked);
+}
+
+function showOverlay(which) {
+  $("overlay").hidden = !which;
+  $("menu").hidden = which !== "menu";
+  $("results").hidden = which !== "results";
+}
+function setFigure(active = -1, ghost = null) {
+  const key = `${sig}|${active}|${ghost ? ghost.map(v => v.toFixed(0)).join(",") : ""}|${lefty}`;
+  if ($("figSvg").dataset.k === key) return;
+  $("figSvg").dataset.k = key;
+  $("figSvg").innerHTML = figureSVG(sig, { lefty, active, ghost });
+}
+
+// ================================================================ modes
+function startLesson() {
+  initAudio();
+  const beat = 60 / bpm, bars = 8;
+  lesson = { beat, start: AC.currentTime + 0.5 + sig * beat, bars, total: bars * sig, next: -sig, results: [], extra: 0, clicks: [] };
+  for (let k = 0; k < lesson.total; k++) lesson.results.push({ k, expect: PATTERNS[sig].seq[k % sig], match: null });
+  beatsSeen = []; marks = []; tracker.reset();
+  mode = "lesson";
+  showOverlay(null);
+  $("hud").hidden = false; $("figure").hidden = false;
+  $("figCap").textContent = "Conduct"; $("figSig").textContent = PATTERNS[sig].name; $("figWords").textContent = PATTERNS[sig].words;
+}
+function startFollow() {
+  initAudio();
+  follow = { bar: 0, beat: -1, times: [] };
+  beatsSeen = []; marks = []; tracker.reset();
+  mode = "follow";
+  showOverlay(null);
+  $("hud").hidden = false; $("figure").hidden = false;
+  $("figCap").textContent = "Target"; $("figSig").textContent = PATTERNS[sig].name; $("figWords").textContent = PATTERNS[sig].words;
+  $("hBig").textContent = "Raise your hand…"; $("hSub").textContent = "the orchestra plays a beat each time you make one";
+}
+
+function onBeat(b) {
+  beatsSeen.push(b);
+  if (beatsSeen.length > 40) beatsSeen.shift();
+  const rec = recognize(beatsSeen.map(x => x.dir));
+  $("dSig").textContent = rec && rec.score >= 0.75 ? PATTERNS[rec.sig].name : "…";
+  $("dSig").style.color = rec && rec.score >= 0.75 ? (rec.sig === sig ? "var(--good)" : "var(--bad)") : "";
+  const mark = { ...b, born: performance.now() / 1000, ok: null, label: "" };
+  marks.push(mark);
+
+  if (mode === "lesson" && lesson) {
+    // Convert the beat's camera time to the audio clock, then match it to the nearest click.
+    const audioT = AC.currentTime - (performance.now() / 1000 - b.t) - LATENCY;
+    const k = Math.round((audioT - lesson.start) / lesson.beat);
+    const r = lesson.results[k];
+    const err = audioT - (lesson.start + k * lesson.beat);
+    if (!r || Math.abs(err) > BEAT_TOL * lesson.beat || r.match) { lesson.extra++; mark.label = "·"; return; }
+    r.match = { err, dir: b.dir, ok: b.dir === r.expect };
+    mark.ok = r.match.ok; mark.label = String((k % sig) + 1);
+  }
+  if (mode === "follow" && follow) {
+    follow.times.push(b.t);
+    if (follow.times.length > 6) follow.times.shift();
+    // A downward stroke is beat 1; otherwise move on one beat.
+    follow.beat = b.dir === "D" ? 0 : (follow.beat + 1) % sig;
+    if (follow.beat === 0 && follow.started) follow.bar++;
+    follow.started = true;
+    const iv = follow.times.slice(1).map((t, i) => t - follow.times[i]).sort((a, c) => a - c);
+    const med = iv.length ? iv[Math.floor(iv.length / 2)] : 0.8;
+    playBeat(follow.bar, follow.beat, sig, AC.currentTime + 0.01, Math.min(Math.max(med, 0.3), 1.5));
+    mark.label = String(follow.beat + 1);
+    mark.ok = b.dir === PATTERNS[sig].seq[follow.beat];
+    $("hBig").textContent = `Beat ${follow.beat + 1}`;
+    $("hSub").textContent = iv.length >= 2 ? `${Math.round(60 / med)} bpm · bar ${follow.bar + 1}` : "keep going…";
+    $("dBpm").textContent = iv.length >= 2 ? `${Math.round(60 / med)} bpm` : "";
+  }
+}
+
+function scheduleLesson() {
+  const ahead = AC.currentTime + 0.12;
+  while (lesson.next < lesson.total && lesson.start + lesson.next * lesson.beat < ahead) {
+    const k = lesson.next, t = lesson.start + k * lesson.beat;
+    click(t, ((k % sig) + sig) % sig === 0);
+    if (k >= 0) playBeat(Math.floor(k / sig), k % sig, sig, t, lesson.beat);
+    lesson.next++;
+  }
+}
+
+function finishLesson() {
+  mode = "results";
+  const R = lesson.results, caught = R.filter(r => r.match), right = caught.filter(r => r.match.ok);
+  const errs = caught.map(r => r.match.err * 1000), meanAbs = errs.length ? errs.reduce((s, e) => s + Math.abs(e), 0) / errs.length : 0;
+  const meanSigned = errs.length ? errs.reduce((s, e) => s + e, 0) / errs.length : 0;
+  const win = BEAT_TOL * lesson.beat * 1000;
+  const pts = R.reduce((s, r) => s + (r.match ? (r.match.ok ? 60 : 0) + 40 * Math.max(0, 1 - Math.abs(r.match.err * 1000) / win) : 0), 0) / R.length;
+  const grade = pts >= 85 ? "A" : pts >= 72 ? "B" : pts >= 58 ? "C" : pts >= 42 ? "D" : "F";
+  const byBeat = PATTERNS[sig].seq.map((d, i) => {
+    const rs = R.filter(r => r.k % sig === i), ok = rs.filter(r => r.match && r.match.ok).length;
+    return { i, d, ok, n: rs.length, wrong: rs.filter(r => r.match && !r.match.ok).map(r => r.match.dir) };
+  });
+  const rec = recognize(beatsSeen.map(b => b.dir));
+  $("rTitle").textContent = `${PATTERNS[sig].name} at ${bpm} bpm`;
+  $("rGrade").textContent = grade;
+  const stat = (v, k) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  $("rStats").innerHTML = stat(`${Math.round(pts)}`, "score / 100") + stat(`${caught.length}/${R.length}`, "beats caught") +
+    stat(`${caught.length ? Math.round((right.length / caught.length) * 100) : 0}%`, "right direction") +
+    stat(`${Math.round(meanAbs)} ms`, `avg timing (${meanSigned < -40 ? "early" : meanSigned > 40 ? "late" : "on time"})`);
+  const tips = [];
+  if (rec) tips.push(`The camera recognised your pattern as <b>${PATTERNS[rec.sig].name}</b> (${Math.round(rec.score * 100)}% match)${rec.sig === sig ? " ✓" : `, but you were asked for ${PATTERNS[sig].name}`}.`);
+  for (const b of byBeat) {
+    if (b.ok < b.n * 0.75) {
+      const common = b.wrong.length ? mode1(b.wrong) : null;
+      tips.push(`Beat ${b.i + 1} should travel <b>${WORD[b.d]}</b>: right ${b.ok}/${b.n} times${common ? `; you usually went ${WORD[common]}` : b.ok < b.n ? "; some beats were missed (make the stroke longer and turn sharply)" : ""}.`);
+    }
+  }
+  if (meanSigned < -40) tips.push("You tend to rush: land each beat a touch later, right on the click.");
+  if (meanSigned > 40) tips.push("You tend to drag: arrive at each beat point a touch earlier.");
+  if (caught.length < R.length * 0.7) tips.push("Many beats weren't picked up. Use bigger, crisper strokes, about a hand-length each, with a clear bounce or turn on the beat.");
+  if (lesson.extra > R.length * 0.3) tips.push("The camera saw extra direction changes between beats. Keep the path between beats smooth.");
+  if (!tips.length || (pts >= 85)) tips.push("Lovely conducting. Try a faster tempo, or another time signature.");
+  $("tips").innerHTML = tips.map(t => `<li>${t}</li>`).join("");
+  showOverlay("results");
+}
+const mode1 = a => Object.entries(a.reduce((m, v) => ((m[v] = (m[v] || 0) + 1), m), {})).sort((x, y) => y[1] - x[1])[0][0];
+
+// ================================================================ drawing
+function pickHand(hands) {
+  if (!hands.length) return null;
+  const s = [...hands].sort((a, b) => a.center.x - b.center.x);
+  return lefty ? s[0] : s[s.length - 1];
+}
+
+function draw(t) {
+  const W = canvas.width, H = canvas.height, dpr = Math.min(devicePixelRatio || 1, 2), now = performance.now() / 1000;
+  ctx.clearRect(0, 0, W, H);
+  // Baton trail.
+  trail = trail.filter(p => now - p.t < 1.1);
+  for (let i = 1; i < trail.length; i++) {
+    const a = trail[i - 1], b = trail[i], k = 1 - (now - b.t) / 1.1;
+    ctx.strokeStyle = `rgba(255, 220, 150, ${k * 0.9})`; ctx.lineWidth = (2 + 8 * k) * dpr; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  if (trail.length) {
+    const p = trail[trail.length - 1];
+    ctx.fillStyle = "#fff"; ctx.shadowColor = "#ffd27a"; ctx.shadowBlur = 20 * dpr;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 9 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  // Beat marks.
+  marks = marks.filter(m => now - m.born < 1.4);
+  for (const m of marks) {
+    const k = (now - m.born) / 1.4;
+    const col = m.ok === null ? "255,255,255" : m.ok ? "126,224,161" : "255,138,122";
+    ctx.globalAlpha = 1 - k;
+    ctx.strokeStyle = `rgb(${col})`; ctx.lineWidth = 3 * dpr;
+    ctx.beginPath(); ctx.arc(m.x, m.y, (14 + 26 * k) * dpr, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = `rgb(${col})`; ctx.font = `800 ${Math.round(22 * dpr)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(m.label, m.x, m.y - 34 * dpr);
+    ctx.globalAlpha = 1;
+  }
+  // Lesson: count-in + "next beat" arrow near the hand.
+  if (mode === "lesson" && lesson) {
+    const songT = AC.currentTime - lesson.start;
+    if (songT < 0) {
+      ctx.fillStyle = "#fff"; ctx.font = `700 ${Math.round(56 * dpr)}px Georgia`; ctx.textAlign = "center";
+      ctx.fillText(String(Math.min(sig, Math.ceil(-songT / lesson.beat))), W / 2, H * 0.4);
+      ctx.font = `500 ${Math.round(18 * dpr)}px system-ui`; ctx.fillText("get ready: start at the top", W / 2, H * 0.4 + 36 * dpr);
+    }
+    const k = Math.max(0, Math.floor(songT / lesson.beat) + 1), d = PATTERNS[sig].seq[k % sig];
+    if (trail.length && k < lesson.total) {
+      const p = trail[trail.length - 1], v = { D: [0, 1], U: [0, -1], I: [lefty ? 1 : -1, 0], O: [lefty ? -1 : 1, 0] }[d], L = 60 * dpr;
+      ctx.strokeStyle = "rgba(232,179,74,0.9)"; ctx.fillStyle = "rgba(232,179,74,0.9)"; ctx.lineWidth = 4 * dpr;
+      const x0 = p.x + v[0] * 30 * dpr, y0 = p.y + v[1] * 30 * dpr, x1 = x0 + v[0] * L, y1 = y0 + v[1] * L;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1 + v[0] * 12 * dpr, y1 + v[1] * 12 * dpr); ctx.lineTo(x1 - v[1] * 9 * dpr, y1 + v[0] * 9 * dpr); ctx.lineTo(x1 + v[1] * 9 * dpr, y1 - v[0] * 9 * dpr); ctx.fill();
+      ctx.font = `700 ${Math.round(15 * dpr)}px system-ui`; ctx.textAlign = "center";
+      ctx.fillText(`${(k % sig) + 1}: ${WORD[d]}`, x1 + v[0] * 34 * dpr, y1 + v[1] * 34 * dpr + 5 * dpr);
+    }
+    // Progress.
+    ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.fillRect(0, H - 4 * dpr, W, 4 * dpr);
+    ctx.fillStyle = "#e8b34a"; ctx.fillRect(0, H - 4 * dpr, W * Math.max(0, Math.min(1, songT / (lesson.total * lesson.beat))), 4 * dpr);
+  }
+  if ((mode === "lesson" || mode === "follow") && !trail.length) {
+    ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = `500 ${Math.round(18 * dpr)}px system-ui`; ctx.textAlign = "center";
+    ctx.fillText(`Hold up your ${lefty ? "left" : "right"} hand`, W / 2, H * 0.62);
+  }
+}
+
+// ================================================================ loop
+function frame(ms) {
+  fitCanvas(canvas);
+  const now = performance.now() / 1000;
+  const hands = fakeHands || (landmarker && detectHands(landmarker, video, canvas, ms));
+  if (hands) {
+    const h = pickHand(hands);
+    if (h && (mode === "lesson" || mode === "follow")) {
+      trail.push({ t: now, x: h.center.x, y: h.center.y });
+      tracker.push(now, h.center.x, h.center.y, h.palm, lefty);
+    }
+    fakeHands = null;
+  }
+  if (mode === "lesson" && lesson) {
+    scheduleLesson();
+    const songT = AC.currentTime - lesson.start, k = Math.floor(songT / lesson.beat);
+    // Ghost dot travels the figure in time, as a guide.
+    if (songT >= -lesson.beat && k < lesson.total) {
+      const pts = FIG[sig], ph = (songT / lesson.beat) - Math.floor(songT / lesson.beat), e = ph * ph * (3 - 2 * ph);
+      const from = pts[((k % sig) + sig) % sig], to = pts[(((k + 1) % sig) + sig) % sig];
+      setFigure(((k + 1) % sig + sig) % sig, [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e]);
+      $("hBig").textContent = songT < 0 ? "Ready…" : `Bar ${Math.floor(k / sig) + 1} of ${lesson.bars}`;
+      const done = lesson.results.filter(r => r.k <= k), ok = done.filter(r => r.match && r.match.ok).length;
+      $("hSub").textContent = songT < 0 ? "watch the click" : `${ok}/${done.length} beats right`;
+    }
+    if (songT > lesson.total * lesson.beat + 0.6) finishLesson();
+  } else if (mode === "follow") setFigure(follow && follow.started ? (follow.beat + 1) % sig : 0);
+  draw(now);
+  requestAnimationFrame(frame);
+}
+
+$("startBtn").onclick = async () => {
+  if (!started) {
+    $("startBtn").disabled = true;
+    $("status").textContent = "Starting camera…";
+    try { await startCamera(video); }
+    catch (e) { $("status").textContent = "Camera unavailable: " + e.message; $("startBtn").disabled = false; return; }
+    $("status").textContent = "Loading hand tracker…";
+    landmarker = await loadHandModel(2);
+    started = true;
+    initAudio();
+    $("startBtn").disabled = false; $("startBtn").textContent = "Begin";
+    $("status").textContent = "Camera ready.";
+    requestAnimationFrame(frame);
+    return;
+  }
+  modeChoice === "lesson" ? startLesson() : startFollow();
+};
+$("menuBtn").onclick = () => { mode = "menu"; lesson = null; follow = null; showOverlay("menu"); };
+$("againBtn").onclick = () => startLesson();
+$("backBtn").onclick = () => showOverlay("menu");
+
+if (DEBUG) {
+  window.__test = { createBeatTracker, classify, recognize, PATTERNS, FIG };
+  window.__feed = hands => { fakeHands = hands; };
+  window.__boot = () => { started = true; initAudio(); $("startBtn").textContent = "Begin"; requestAnimationFrame(frame); };
+  window.__state = () => ({ mode, lesson, follow, beatsSeen, audioNow: AC && AC.currentTime });
+  window.__set = o => { if (o.sig) sig = o.sig; if (o.bpm) bpm = o.bpm; if (o.mode) modeChoice = o.mode; };
+}
+</script>
+</body>
+</html>

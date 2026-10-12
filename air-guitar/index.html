@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Air Guitar Hero</title>
+<style>
+  :root {
+    --bg: #07060a; --fg: #f4ecff; --muted: #b7accb; --accent: #ff3fa4; --panel: rgba(14, 10, 22, 0.88);
+    --line: rgba(220, 190, 255, 0.18); --G: #2ecc71; --C: #ff4b4b; --D: #f5c518; --Em: #3a8dff; --X: #9a9a9a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+  video, canvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  video { transform: scaleX(-1); filter: brightness(0.55) saturate(0.8); }
+  button { font: 600 15px system-ui, sans-serif; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: var(--fg); padding: 10px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.sel { border-color: var(--accent); background: rgba(255, 63, 164, 0.18); }
+
+  #hud { position: fixed; top: 12px; left: 16px; right: 16px; display: flex; gap: 12px; align-items: center; z-index: 3; pointer-events: none; }
+  #hud .score { font: 800 26px ui-monospace, Menlo, monospace; }
+  #hud .combo { color: var(--muted); font-weight: 600; }
+  #hud .mult { font: 800 18px system-ui; color: var(--accent); }
+  #hud .spacer { flex: 1; }
+  #hud button { pointer-events: auto; }
+
+  #fret { position: fixed; left: 16px; top: 64px; width: 190px; z-index: 3; padding: 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); text-align: center; }
+  #fret .cap { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  #fret .now { font: 800 44px system-ui; line-height: 1.1; margin: 2px 0 4px; }
+  #fret .row { display: flex; justify-content: center; gap: 4px; align-items: center; }
+  #fret .next { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+  #fret .next b { font-size: 22px; }
+
+  #overlay { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(7, 6, 10, 0.72); overflow-y: auto; }
+  #overlay[hidden] { display: none; }
+  .card { width: min(720px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-height: 100%; overflow-y: auto; }
+  .card h1 { margin: 0 0 4px; font-size: 30px; }
+  .card h2 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .card p { color: var(--muted); line-height: 1.45; margin: 6px 0; font-size: 14px; }
+  .songs, .diffs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .songs button { text-align: left; }
+  .songs button small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; margin-top: 2px; }
+  .chords { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .chord { border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; }
+  .chord .nm { font: 800 22px system-ui; }
+  .chord .lbl { font-size: 12px; color: var(--muted); }
+  .chord .pics { display: flex; justify-content: center; align-items: center; gap: 2px; }
+  .go { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+  label.chk { color: var(--muted); font-size: 14px; display: flex; gap: 6px; align-items: center; }
+  .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .stat .v { font: 800 26px system-ui; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .grade { font: 900 72px system-ui; color: var(--accent); line-height: 1; }
+  @media (max-width: 640px) { #fret { width: 140px; } #fret svg { width: 52px; height: 52px; } #fret .now { font-size: 32px; } }
+</style>
+</head>
+<body>
+<video id="video" playsinline muted></video>
+<canvas id="fx"></canvas>
+
+<div id="hud" hidden>
+  <div><div class="score" id="score">0</div><div class="combo" id="combo">combo 0</div></div>
+  <div class="mult" id="mult"></div>
+  <div class="spacer"></div>
+  <button id="menuBtn">Menu</button>
+</div>
+
+<div id="fret" hidden>
+  <div class="cap">Chord hand</div>
+  <div class="now" id="nowChord">–</div>
+  <div class="row" id="nowPics"></div>
+  <div class="next"><div class="cap">Next</div><b id="nextChord">–</b><div class="row" id="nextPics"></div></div>
+</div>
+
+<div id="overlay">
+  <div class="card" id="menu">
+    <h1>🎸 Air Guitar Hero</h1>
+    <p>Hold chord shapes with one hand and strum with the other. Your camera watches both: hit each chord gem as it crosses the line, with the right shape, on time.</p>
+    <h2>The four chords</h2>
+    <p>Real chord charts on the left of each card, the air shape your hand makes on the right. More fingers up means a different chord; a fist mutes.</p>
+    <div class="chords" id="chordCards"></div>
+    <h2>How to play</h2>
+    <p><b>Left hand</b> (left side of the screen) holds the chord shape, palm toward the camera. <b>Right hand</b> strums: swipe it down (or up) through the middle of your strum zone, like brushing strings. Keep both hands in frame, with a little space between them.</p>
+    <h2>Song</h2>
+    <div class="songs" id="songs"></div>
+    <h2>Difficulty</h2>
+    <div class="diffs" id="diffs"></div>
+    <div class="go">
+      <button class="primary" id="startBtn">Start camera</button>
+      <button id="freeBtn" hidden>Free play</button>
+      <label class="chk"><input type="checkbox" id="lefty"> Left-handed (strum with left)</label>
+    </div>
+    <p id="status"></p>
+  </div>
+  <div class="card" id="results" hidden>
+    <h1 id="rTitle">Song complete</h1>
+    <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+      <div class="grade" id="rGrade">A</div>
+      <div class="results" id="rStats" style="flex:1"></div>
+    </div>
+    <h2>By chord</h2>
+    <div class="results" id="rChords"></div>
+    <div class="go"><button class="primary" id="againBtn">Play again</button><button id="backBtn">Song list</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { startCamera, loadHandModel, fitCanvas, detectHands } from "../shared/handcam.js";
+import { handSVG } from "../fireball-hands/handsvg.js";
+
+// ================================================================ chords
+// frets: low E → high e (null = not played). fingers: which finger frets each string (for the chart).
+const CHORDS = {
+  G:  { frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], up: [1, 1, 1, 1], air: "B", label: "4 fingers up" },
+  C:  { frets: [null, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0], up: [1, 1, 1, 0], air: "W", label: "3 fingers up" },
+  D:  { frets: [null, null, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2], up: [1, 0, 0, 0], air: "D", label: "1 finger up" },
+  Em: { frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0], up: [1, 1, 0, 0], air: "V", label: "2 fingers up" },
+};
+const LANES = ["G", "C", "D", "Em"];
+const COLOR = { G: "#2ecc71", C: "#ff4b4b", D: "#f5c518", Em: "#3a8dff", X: "#9a9a9a" };
+const EXT_UP = 1.58;   // finger counts as "up" above this wrist→tip / wrist→knuckle ratio (validated on real hands)
+
+function chordFromExt(ext) {
+  if (!ext) return null;
+  const up = ext.map(v => (v > EXT_UP ? 1 : 0));
+  if (!up.some(Boolean)) return "X";
+  for (const [name, c] of Object.entries(CHORDS)) if (c.up.every((v, i) => v === up[i])) return name;
+  return null;
+}
+
+// Standard chord box: 6 strings, 4 frets.
+function chordBox(name, size = 72) {
+  const c = CHORDS[name], s = 12, top = 14, left = 8, w = s * 5, h = 4 * 14;
+  let svg = `<svg viewBox="0 0 ${w + 16} ${h + 22}" width="${size}" height="${size * (h + 22) / (w + 16)}" role="img" aria-label="${name} chord chart">`;
+  svg += `<rect x="${left}" y="${top - 2}" width="${w}" height="3" fill="#f4ecff"/>`;
+  for (let i = 0; i < 6; i++) svg += `<line x1="${left + i * s}" y1="${top}" x2="${left + i * s}" y2="${top + h}" stroke="#b7accb" stroke-width="1"/>`;
+  for (let f = 1; f <= 4; f++) svg += `<line x1="${left}" y1="${top + f * 14}" x2="${left + w}" y2="${top + f * 14}" stroke="#b7accb" stroke-width="1"/>`;
+  c.frets.forEach((f, i) => {
+    const x = left + i * s;
+    if (f === null) svg += `<text x="${x}" y="${top - 5}" font-size="9" fill="#b7accb" text-anchor="middle">×</text>`;
+    else if (f === 0) svg += `<circle cx="${x}" cy="${top - 7}" r="3" fill="none" stroke="#b7accb"/>`;
+    else svg += `<circle cx="${x}" cy="${top + f * 14 - 7}" r="5" fill="${COLOR[name]}"/><text x="${x}" y="${top + f * 14 - 4}" font-size="7" font-weight="700" fill="#000" text-anchor="middle">${c.fingers[i]}</text>`;
+  });
+  return svg + `</svg>`;
+}
+const airPic = (name, size) => (name === "X" ? handSVG("S", { size }) : handSVG(CHORDS[name].air, { size }));
+
+// ================================================================ songs (original progressions)
+const SONGS = [
+  { id: "first", name: "First Chords", note: "66 bpm · G, C, D", bpm: 66, bars: ["G", "G", "C", "C", "D", "D", "G", "G", "C", "C", "G", "G", "D", "D", "G", "G"] },
+  { id: "campfire", name: "Campfire Strum", note: "78 bpm · G D Em C", bpm: 78, bars: Array(4).fill(["G", "D", "Em", "C"]).flat() },
+  { id: "highway", name: "Highway Rock", note: "100 bpm · Em C G D", bpm: 100, bars: Array(4).fill(["Em", "C", "G", "D"]).flat() },
+];
+const DIFFS = {
+  easy: { name: "Easy", note: "one strum per bar", beats: [0] },
+  medium: { name: "Medium", note: "beats 1 and 3", beats: [0, 2] },
+  hard: { name: "Hard", note: "every beat, down-up", beats: [0, 1, 2, 3], dirs: true },
+};
+const PERFECT = 0.09, GOOD = 0.19, LEAD = 2.2, LATENCY = 0.05;   // camera delay, minus the head start a swipe gets by registering as it speeds up
+
+// ================================================================ dom
+const $ = id => document.getElementById(id);
+const video = $("video"), canvas = $("fx"), ctx = canvas.getContext("2d");
+const DEBUG = location.hash.includes("debug");
+let song = SONGS[0], diff = "easy", lefty = false;
+{
+  for (const name of [...LANES]) {
+    const d = document.createElement("div");
+    d.className = "chord";
+    d.innerHTML = `<div class="nm" style="color:${COLOR[name]}">${name}</div><div class="pics">${chordBox(name, 64)}${airPic(name, 70)}</div><div class="lbl">${CHORDS[name].label}</div>`;
+    $("chordCards").appendChild(d);
+  }
+  const mute = document.createElement("div");
+  mute.className = "chord";
+  mute.innerHTML = `<div class="nm" style="color:${COLOR.X}">Mute</div><div class="pics">${airPic("X", 70)}</div><div class="lbl">fist: a percussive chunk</div>`;
+  $("chordCards").appendChild(mute);
+  const pickSong = id => { song = SONGS.find(s => s.id === id); for (const b of $("songs").children) b.classList.toggle("sel", b.dataset.id === id); };
+  for (const s of SONGS) {
+    const b = document.createElement("button");
+    b.dataset.id = s.id;
+    b.innerHTML = `${s.name}<small>${s.note}</small>`;
+    b.onclick = () => pickSong(s.id);
+    $("songs").appendChild(b);
+  }
+  pickSong(song.id);
+  const pickDiff = k => { diff = k; for (const b of $("diffs").children) b.classList.toggle("sel", b.dataset.k === k); };
+  for (const [k, d] of Object.entries(DIFFS)) {
+    const b = document.createElement("button");
+    b.dataset.k = k;
+    b.innerHTML = `${d.name}<small style="display:block;color:var(--muted);font-weight:400;font-size:12px">${d.note}</small>`;
+    b.onclick = () => pickDiff(k);
+    $("diffs").appendChild(b);
+  }
+  pickDiff(diff);
+  $("lefty").onchange = e => (lefty = e.target.checked);
+}
+
+// ================================================================ audio
+let AC = null, master = null, guitarBus = null;
+const pluckCache = new Map();
+function initAudio() {
+  if (AC) return;
+  AC = new AudioContext();
+  const comp = AC.createDynamicsCompressor();
+  comp.connect(AC.destination);
+  master = AC.createGain(); master.gain.value = 0.8; master.connect(comp);
+  // Mild overdrive for the guitar.
+  const shaper = AC.createWaveShaper();
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; curve[i] = Math.tanh(2.5 * x); }
+  shaper.curve = curve;
+  const tone = AC.createBiquadFilter(); tone.type = "lowpass"; tone.frequency.value = 4200;
+  guitarBus = AC.createGain(); guitarBus.gain.value = 0.55;
+  guitarBus.connect(shaper); shaper.connect(tone); tone.connect(master);
+}
+// Karplus-Strong plucked string, rendered once per pitch.
+function pluck(freq) {
+  const key = Math.round(freq * 10);
+  if (pluckCache.has(key)) return pluckCache.get(key);
+  const sr = AC.sampleRate, len = Math.floor(sr * 2.2), N = Math.max(2, Math.round(sr / freq));
+  const buf = AC.createBuffer(1, len, sr), out = buf.getChannelData(0), ring = new Float32Array(N);
+  for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
+  for (let i = 0; i < N; i++) ring[i] = (ring[i] + ring[(i + 1) % N]) / 2;
+  for (let i = 0; i < len; i++) {
+    const j = i % N, v = ring[j];
+    out[i] = v;
+    ring[j] = 0.9965 * 0.5 * (v + ring[(j + 1) % N]);
+  }
+  pluckCache.set(key, buf);
+  return buf;
+}
+const OPEN = [82.41, 110.0, 146.83, 196.0, 246.94, 329.63];
+function playChord(name, dir = "down", when = AC.currentTime) {
+  if (name === "X" || !CHORDS[name]) return playMute(when);
+  const strings = CHORDS[name].frets.map((f, i) => (f === null ? null : OPEN[i] * Math.pow(2, f / 12))).filter(Boolean);
+  if (dir === "up") strings.reverse();
+  strings.forEach((f, i) => {
+    const src = AC.createBufferSource(), g = AC.createGain();
+    src.buffer = pluck(f);
+    g.gain.value = 0.32;
+    g.gain.setTargetAtTime(0, when + 1.4, 0.3);
+    src.connect(g); g.connect(guitarBus);
+    src.start(when + i * 0.013);
+    src.stop(when + 2.2);
+  });
+}
+function noiseBuf(dur) {
+  const b = AC.createBuffer(1, Math.floor(AC.sampleRate * dur), AC.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+function hit(when, { dur, freq, type = "bandpass", q = 1, gain = 0.5, tone }) {
+  const src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  src.buffer = noiseBuf(dur); f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(gain, when); g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+  src.connect(f); f.connect(g); g.connect(master); src.start(when);
+  if (tone) {
+    const o = AC.createOscillator(), og = AC.createGain();
+    o.frequency.setValueAtTime(tone[0], when); o.frequency.exponentialRampToValueAtTime(tone[1], when + dur);
+    og.gain.setValueAtTime(tone[2], when); og.gain.exponentialRampToValueAtTime(0.001, when + dur);
+    o.connect(og); og.connect(master); o.start(when); o.stop(when + dur);
+  }
+}
+const playMute = when => hit(when, { dur: 0.06, freq: 1800, q: 2, gain: 0.6 });
+const kick = when => hit(when, { dur: 0.18, freq: 120, type: "lowpass", gain: 0.15, tone: [150, 45, 0.9] });
+const snare = when => hit(when, { dur: 0.14, freq: 1800, type: "highpass", gain: 0.35, tone: [200, 160, 0.25] });
+const hat = (when, g = 0.12) => hit(when, { dur: 0.035, freq: 7000, type: "highpass", gain: g });
+const ROOT = { G: 98.0, C: 130.81, D: 146.83, Em: 82.41 };
+function bass(name, when, dur) {
+  const o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+  o.type = "sawtooth"; o.frequency.value = ROOT[name];
+  f.type = "lowpass"; f.frequency.value = 420;
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.28, when + 0.02); g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+  o.connect(f); f.connect(g); g.connect(master); o.start(when); o.stop(when + dur + 0.05);
+}
+
+// ================================================================ game state
+let landmarker = null, started = false, mode = "menu";   // menu | play | free | results
+let game = null;
+let fretHist = [], fretChord = null, strum = { line: null, prevY: null, prevT: 0, last: 0, flash: 0, dir: "down" };
+let feedback = [];   // floating text
+let fakeHands = null;
+
+function buildChart() {
+  const beat = 60 / song.bpm, notes = [], d = DIFFS[diff];
+  song.bars.forEach((chord, bar) => {
+    for (const b of d.beats) notes.push({ t: (bar * 4 + b) * beat, chord, dir: d.dirs ? (b % 2 ? "up" : "down") : null, state: null });
+  });
+  return notes;
+}
+
+function startSong() {
+  initAudio();
+  const beat = 60 / song.bpm;
+  game = { notes: buildChart(), beat, start: AC.currentTime + 0.4 + 4 * beat, score: 0, combo: 0, maxCombo: 0,
+           counts: { perfect: 0, good: 0, miss: 0 }, byChord: {}, nextBeat: -4, end: song.bars.length * 4 * beat };
+  for (const c of LANES) game.byChord[c] = { hit: 0, total: game.notes.filter(n => n.chord === c).length };
+  mode = "play";
+  showOverlay(null);
+  $("hud").hidden = false; $("fret").hidden = false;
+  updateHud();
+}
+function startFree() {
+  initAudio();
+  game = null; mode = "free";
+  showOverlay(null);
+  $("hud").hidden = false; $("fret").hidden = false;
+  $("score").textContent = "Free play"; $("combo").textContent = "strum anything"; $("mult").textContent = "";
+}
+function showOverlay(which) {
+  $("overlay").hidden = !which;
+  $("menu").hidden = which !== "menu";
+  $("results").hidden = which !== "results";
+}
+
+// Backing track: count-in clicks, then drums + bass, scheduled ahead on the audio clock.
+function scheduleBacking() {
+  if (!game) return;
+  const ahead = AC.currentTime + 0.15;
+  while (game.start + game.nextBeat * game.beat < ahead && game.nextBeat * game.beat < game.end) {
+    const k = game.nextBeat, t = game.start + k * game.beat;
+    if (k < 0) hat(t, k === -4 ? 0.35 : 0.22);
+    else {
+      const inBar = k % 4, chord = song.bars[Math.floor(k / 4)];
+      if (inBar === 0 || inBar === 2) { kick(t); bass(chord, t, game.beat * 1.8); }
+      else snare(t);
+      hat(t); hat(t + game.beat / 2, 0.07);
+    }
+    game.nextBeat++;
+  }
+}
+
+function judge(note, kind) {
+  note.state = kind;
+  if (kind === "miss") { game.combo = 0; game.counts.miss++; }
+  else {
+    game.combo++; game.maxCombo = Math.max(game.maxCombo, game.combo);
+    game.counts[kind]++; game.byChord[note.chord].hit++;
+    game.score += (kind === "perfect" ? 100 : 60) * multiplier();
+  }
+  feedback.push({ text: kind === "perfect" ? "PERFECT" : kind === "good" ? "GOOD" : "MISS", color: kind === "miss" ? "#ff6b6b" : kind === "perfect" ? "#7dffb0" : "#ffe27a", t: performance.now() / 1000, lane: LANES.indexOf(note.chord) });
+  updateHud();
+}
+const multiplier = () => (game.combo >= 30 ? 4 : game.combo >= 20 ? 3 : game.combo >= 10 ? 2 : 1);
+function updateHud() {
+  if (!game) return;
+  $("score").textContent = game.score.toLocaleString();
+  $("combo").textContent = `combo ${game.combo}`;
+  $("mult").textContent = multiplier() > 1 ? `×${multiplier()}` : "";
+}
+
+function onStrum(dir) {
+  const chord = fretChord || "X";
+  playChord(chord, dir);
+  strum.flash = 1; strum.dir = dir;
+  if (mode !== "play" || !game) return;
+  const songT = AC.currentTime - LATENCY - game.start;
+  let best = null, bestD = Infinity;
+  for (const n of game.notes) {
+    if (n.state) continue;
+    const d = Math.abs(n.t - songT);
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  if (!best || bestD > GOOD) return;
+  if (best.chord !== chord) { feedback.push({ text: `need ${best.chord}`, color: "#ff9a9a", t: performance.now() / 1000, lane: LANES.indexOf(best.chord) }); return; }
+  if (best.dir && best.dir !== dir) { feedback.push({ text: best.dir === "down" ? "strum ↓" : "strum ↑", color: "#ff9a9a", t: performance.now() / 1000, lane: LANES.indexOf(best.chord) }); return; }
+  judge(best, bestD <= PERFECT ? "perfect" : "good");
+}
+
+function finishSong() {
+  mode = "results";
+  const total = game.notes.length, hits = game.counts.perfect + game.counts.good;
+  const acc = (game.counts.perfect + game.counts.good * 0.6) / total;
+  const grade = acc >= 0.9 ? "S" : acc >= 0.8 ? "A" : acc >= 0.65 ? "B" : acc >= 0.5 ? "C" : "D";
+  $("rTitle").textContent = `${song.name} · ${DIFFS[diff].name}`;
+  $("rGrade").textContent = grade;
+  const stat = (v, k) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  $("rStats").innerHTML = stat(game.score.toLocaleString(), "score") + stat(`${Math.round((hits / total) * 100)}%`, `notes hit (${hits}/${total})`) +
+    stat(game.counts.perfect, "perfect") + stat(game.maxCombo, "best combo");
+  $("rChords").innerHTML = LANES.filter(c => game.byChord[c].total).map(c => `<div class="stat"><div class="v" style="color:${COLOR[c]}">${c}</div><div class="k">${game.byChord[c].hit}/${game.byChord[c].total} hit</div></div>`).join("");
+  showOverlay("results");
+}
+
+// ================================================================ hands → chord + strum
+function assignHands(hands) {
+  if (!hands.length) return { fret: null, strum: null };
+  const sorted = [...hands].sort((a, b) => a.center.x - b.center.x);   // screen left → right
+  const mid = canvas.width / 2;
+  if (sorted.length === 1) {
+    const h = sorted[0], isLeft = h.center.x < mid;
+    return isLeft !== lefty ? { fret: h, strum: null } : { fret: null, strum: h };
+  }
+  const [L, R] = [sorted[0], sorted[sorted.length - 1]];
+  return lefty ? { fret: R, strum: L } : { fret: L, strum: R };
+}
+
+function updateFret(h) {
+  const c = h ? chordFromExt(h.ext) : null;
+  fretHist.push(c);
+  if (fretHist.length > 6) fretHist.shift();
+  const counts = {};
+  for (const v of fretHist) if (v) counts[v] = (counts[v] || 0) + 1;
+  let best = null, n = 0;
+  for (const [k, v] of Object.entries(counts)) if (v > n) { n = v; best = k; }
+  const next = n >= 4 ? best : h ? fretChord : null;
+  if (next !== fretChord) {
+    fretChord = next;
+    $("nowChord").textContent = fretChord ? (fretChord === "X" ? "Mute" : fretChord) : "–";
+    $("nowChord").style.color = fretChord ? COLOR[fretChord] : "";
+    $("nowPics").innerHTML = fretChord ? (fretChord === "X" ? airPic("X", 64) : chordBox(fretChord, 60) + airPic(fretChord, 64)) : "";
+  }
+}
+
+// A strum is a fast vertical swipe of the strum hand, wherever it happens. After firing, the next strum
+// needs the hand to slow down or change direction first, so one swipe can't count twice.
+const V_ON = 2.4, V_OFF = 1.0;   // hand-lengths per second
+function updateStrum(h, t) {
+  if (!h) { strum.prevY = null; return; }
+  const y = h.center.y, p = h.palm;
+  if (strum.line === null) strum.line = y;
+  if (strum.prevY !== null) {
+    const dt = Math.max(t - strum.prevT, 1e-3), raw = (y - strum.prevY) / dt / p;
+    strum.vy = strum.vy === undefined ? raw : strum.vy * 0.4 + raw * 0.6;
+    const dir = strum.vy > 0 ? "down" : "up";
+    if (strum.armed === false && (Math.abs(strum.vy) < V_OFF || dir !== strum.dir)) strum.armed = true;
+    if (strum.armed !== false && Math.abs(strum.vy) > V_ON && t - strum.last > 0.1) {
+      strum.last = t; strum.armed = false; onStrum(dir);
+    }
+  }
+  strum.line += (y - strum.line) * (1 - Math.exp(-(t - (strum.prevT || t)) / 0.6));   // just for drawing the strings
+  strum.prevY = y; strum.prevT = t; strum.x = h.center.x; strum.palm = p;
+}
+
+// ================================================================ drawing
+function draw(t) {
+  const W = canvas.width, H = canvas.height, dpr = Math.min(devicePixelRatio || 1, 2);
+  ctx.clearRect(0, 0, W, H);
+  if (mode === "play" && game) drawHighway(W, H, dpr);
+  drawStrumZone(dpr);
+  // Floating feedback.
+  const now = performance.now() / 1000;
+  feedback = feedback.filter(f => now - f.t < 0.8);
+  for (const f of feedback) {
+    const k = (now - f.t) / 0.8, hw = highwayGeom(W, H, dpr);
+    ctx.globalAlpha = 1 - k;
+    ctx.fillStyle = f.color; ctx.font = `800 ${Math.round(20 * dpr)}px system-ui`; ctx.textAlign = "center";
+    ctx.fillText(f.text, hw.cx + (f.lane - 1.5) * hw.laneW, hw.hitY - 40 * dpr - k * 40 * dpr);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function highwayGeom(W, H, dpr) {
+  const laneW = Math.min(90 * dpr, W * 0.13);
+  return { cx: W / 2, laneW, topY: H * 0.1, hitY: H * 0.84, far: 0.42 };
+}
+
+function drawHighway(W, H, dpr) {
+  const g = highwayGeom(W, H, dpr), songT = AC.currentTime - game.start;
+  const xAt = (lane, s) => g.cx + (lane - 1.5) * g.laneW * s;
+  const yAt = p => g.hitY - (g.hitY - g.topY) * p;
+  const sAt = p => 1 - (1 - g.far) * p;
+  // Road.
+  ctx.fillStyle = "rgba(10, 6, 20, 0.55)";
+  ctx.beginPath();
+  ctx.moveTo(xAt(-0.6, sAt(1)), yAt(1)); ctx.lineTo(xAt(3.6, sAt(1)), yAt(1));
+  ctx.lineTo(xAt(3.6, 1), g.hitY + 30 * dpr); ctx.lineTo(xAt(-0.6, 1), g.hitY + 30 * dpr); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(220,190,255,0.15)"; ctx.lineWidth = dpr;
+  for (let l = 0; l <= 4; l++) { ctx.beginPath(); ctx.moveTo(xAt(l - 0.5, sAt(1)), yAt(1)); ctx.lineTo(xAt(l - 0.5, 1), g.hitY + 30 * dpr); ctx.stroke(); }
+  // Bar lines.
+  const barDur = game.beat * 4;
+  for (let b = Math.floor(songT / barDur); b < (songT + LEAD) / barDur + 1; b++) {
+    const p = (b * barDur - songT) / LEAD;
+    if (p < 0 || p > 1) continue;
+    ctx.strokeStyle = "rgba(220,190,255,0.22)"; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.moveTo(xAt(-0.5, sAt(p)), yAt(p)); ctx.lineTo(xAt(3.5, sAt(p)), yAt(p)); ctx.stroke();
+  }
+  // Hit line + lane targets.
+  ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 3 * dpr;
+  ctx.beginPath(); ctx.moveTo(xAt(-0.5, 1), g.hitY); ctx.lineTo(xAt(3.5, 1), g.hitY); ctx.stroke();
+  LANES.forEach((c, i) => {
+    const active = fretChord === c;
+    ctx.strokeStyle = COLOR[c]; ctx.lineWidth = (active ? 4 : 2) * dpr;
+    ctx.fillStyle = active ? COLOR[c] + "55" : "rgba(0,0,0,0.3)";
+    ctx.beginPath(); ctx.ellipse(xAt(i, 1), g.hitY, g.laneW * 0.38, 14 * dpr, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.font = `700 ${Math.round(13 * dpr)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(c, xAt(i, 1), g.hitY + 26 * dpr);
+  });
+  // Notes.
+  for (const n of game.notes) {
+    const p = (n.t - songT) / LEAD;
+    if (p > 1 || p < -0.08) continue;
+    if (n.state && n.state !== "miss") continue;
+    const lane = LANES.indexOf(n.chord), s = sAt(Math.max(p, 0)), x = xAt(lane, s), y = yAt(p);
+    const w = g.laneW * 0.78 * s, h = 22 * dpr * s;
+    ctx.globalAlpha = n.state === "miss" ? 0.3 : 1;
+    ctx.fillStyle = COLOR[n.chord];
+    ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2 * dpr; ctx.stroke();
+    ctx.fillStyle = "#000"; ctx.font = `800 ${Math.round(13 * dpr * s)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(n.dir ? `${n.chord} ${n.dir === "down" ? "↓" : "↑"}` : n.chord, x, y + dpr);
+    ctx.globalAlpha = 1;
+  }
+  // Count-in.
+  if (songT < 0) {
+    ctx.fillStyle = "#fff"; ctx.font = `900 ${Math.round(64 * dpr)}px system-ui`; ctx.textAlign = "center";
+    ctx.fillText(String(Math.min(4, Math.ceil(-songT / game.beat))), g.cx, H * 0.45);
+  }
+  // Progress bar.
+  ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.fillRect(0, H - 4 * dpr, W, 4 * dpr);
+  ctx.fillStyle = "#ff3fa4"; ctx.fillRect(0, H - 4 * dpr, W * Math.max(0, Math.min(1, songT / game.end)), 4 * dpr);
+}
+
+function drawStrumZone(dpr) {
+  if (strum.line === null || strum.x === undefined || strum.prevY === null) return;
+  const x = strum.x, p = strum.palm || 80, y = strum.line;
+  ctx.strokeStyle = `rgba(255, 63, 164, ${0.45 + strum.flash * 0.55})`; ctx.lineWidth = (3 + strum.flash * 4) * dpr;
+  for (let i = -2; i <= 2; i++) {   // a few "strings"
+    ctx.globalAlpha = 0.35 + (i === 0 ? 0.65 : 0);
+    ctx.beginPath(); ctx.moveTo(x - p * 1.6, y + i * 7 * dpr); ctx.lineTo(x + p * 1.6, y + i * 7 * dpr); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x, strum.prevY, 7 * dpr, 0, Math.PI * 2); ctx.fill();
+  if (strum.flash > 0.05) {
+    ctx.globalAlpha = strum.flash; ctx.fillStyle = "#ff3fa4"; ctx.font = `900 ${Math.round(40 * dpr)}px system-ui`; ctx.textAlign = "center";
+    ctx.fillText(strum.dir === "down" ? "↓" : "↑", x + p * 2, y + 12 * dpr);
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.font = `600 ${Math.round(12 * dpr)}px system-ui`; ctx.textAlign = "center";
+  ctx.fillText("swipe down / up to strum", x, y - p * 0.9);
+}
+
+function updateNextChord() {
+  if (mode !== "play" || !game) { $("nextChord").textContent = "–"; $("nextPics").innerHTML = ""; return; }
+  const songT = AC.currentTime - game.start;
+  const n = game.notes.find(n => !n.state && n.t > songT - GOOD);
+  const key = n ? n.chord : "–";
+  if ($("nextChord").dataset.k !== key) {
+    $("nextChord").dataset.k = key;
+    $("nextChord").textContent = key; $("nextChord").style.color = n ? COLOR[n.chord] : "";
+    $("nextPics").innerHTML = n ? airPic(n.chord, 54) : "";
+  }
+}
+
+// ================================================================ loop
+let lastFrame = performance.now();
+function frame(ms) {
+  const t = ms / 1000, dt = Math.min((ms - lastFrame) / 1000, 0.05);
+  lastFrame = ms;
+  fitCanvas(canvas);
+  const hands = fakeHands || (landmarker && detectHands(landmarker, video, canvas, ms));
+  if (hands) {
+    const a = assignHands(hands);
+    updateFret(a.fret);
+    updateStrum(a.strum, t);
+    if (fakeHands) fakeHands = null;
+  }
+  strum.flash *= Math.pow(0.02, dt);
+  if (mode === "play" && game) {
+    scheduleBacking();
+    const songT = AC.currentTime - LATENCY - game.start;
+    for (const n of game.notes) if (!n.state && songT - n.t > GOOD) judge(n, "miss");
+    if (songT > game.end + 1.5) finishSong();
+  }
+  updateNextChord();
+  draw(t);
+  requestAnimationFrame(frame);
+}
+
+$("startBtn").onclick = async () => {
+  if (started) return startSong();
+  $("startBtn").disabled = true;
+  $("status").textContent = "Starting camera…";
+  try { await startCamera(video); }
+  catch (e) { $("status").textContent = "Camera unavailable: " + e.message; $("startBtn").disabled = false; return; }
+  $("status").textContent = "Loading hand tracker…";
+  landmarker = await loadHandModel(2);
+  started = true;
+  initAudio();
+  $("startBtn").disabled = false; $("startBtn").textContent = "Play song";
+  $("freeBtn").hidden = false;
+  $("status").textContent = "Camera ready. Pick a song and press Play, or warm up in Free play.";
+  requestAnimationFrame(frame);
+};
+$("freeBtn").onclick = startFree;
+$("menuBtn").onclick = () => { mode = "menu"; game = null; $("startBtn").textContent = "Play song"; showOverlay("menu"); };
+$("againBtn").onclick = startSong;
+$("backBtn").onclick = () => showOverlay("menu");
+
+if (DEBUG) {
+  window.__test = { chordFromExt, onStrum, updateStrum, strum, get game() { return game; }, get fretChord() { return fretChord; }, audioNow: () => AC && AC.currentTime };
+  window.__feed = hands => { fakeHands = hands; };
+  window.__boot = () => { started = true; initAudio(); $("startBtn").textContent = "Play song"; $("freeBtn").hidden = false; requestAnimationFrame(frame); };
+}
+</script>
+</body>
+</html>
