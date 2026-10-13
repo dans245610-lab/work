@@ -343,11 +343,141 @@ const SCENES = [
       pop(this.cta, t, 9.4, Infinity, { dy: 24 });
     }
   },
+  {
+    /* Full-screen (opaque) walkthrough using the real SCC screenshots.
+       Timed to the 2nd cut's SRT: 1:20.2 "To sign up, visit…" → 1:40.7 "…contact information". */
+    id: '12_signup_fullscreen', start: 80.2, end: 100.7, opaque: true,
+    build(st) {
+      const FX = 60, FY = 500, FW = 960, FH = 980;   // screenshot frame
+      st.appendChild(h(`<div class="abs" style="inset:0;background:radial-gradient(120% 80% at 50% 20%, #1a2c47 0%, #0d1726 60%, #08101c 100%)"></div>`));
+      st.appendChild(h(`<div class="abs" style="left:60px;top:150px"><div class="kicker" style="margin:0">How to sign up · testify by phone</div></div>`));
+      const titles = [
+        'Go to <span class="volt">scc.virginia.gov</span>',
+        'Click <span class="volt">Cases</span> → <span class="volt">Participating in SCC Cases</span>',
+        'Scroll down to <span class="volt">Testifying by Telephone</span>',
+        'Click the <span class="volt">Public Witness Appearance Form</span>',
+        'Enter case <span class="volt mono" style="font-size:.9em">PUR-2026-00044</span> + your contact info',
+      ];
+      this.heads = titles.map((t, i) => st.appendChild(h(`<div class="abs" style="left:60px;top:250px;width:960px">
+        <div class="row" style="align-items:flex-start;gap:28px">
+          <div class="num" style="flex:0 0 96px;height:96px;font-size:54px;background:var(--volt);color:var(--ink)">${i + 1}</div>
+          <div class="h2" style="font-size:62px;line-height:1.08">${t}</div>
+        </div></div>`)));
+      // progress bar
+      this.prog = st.appendChild(h(`<div class="abs" style="left:60px;top:${FY + FH + 40}px;width:960px;display:flex;gap:14px">
+        ${[0,1,2,3,4].map(i => `<div style="flex:1;height:12px;border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden"><div id="p${i}" style="height:100%;width:0;background:var(--volt)"></div></div>`).join('')}
+      </div>`));
+      this.pbars = [0,1,2,3,4].map(i => this.prog.querySelector('#p' + i));
+      // frame
+      this.frame = st.appendChild(h(`<div class="abs" style="left:${FX}px;top:${FY}px;width:${FW}px;height:${FH}px;border-radius:34px;overflow:hidden;background:#f3f4f6;box-shadow:0 40px 100px rgba(0,0,0,.55), 0 0 0 3px rgba(255,255,255,.08)"></div>`));
+      this.FW = FW; this.FH = FH;
+      const shot = (src, w, hh, boxes = []) => {
+        const el = this.frame.appendChild(h(`<div class="abs" style="left:0;top:0;width:${w}px;height:${hh}px;transform-origin:0 0;opacity:0">
+          <img src="shots/${src}" style="display:block;width:${w}px;height:${hh}px">
+          ${boxes.map((b, i) => `<div class="hl" id="b${i}" style="position:absolute;left:${b[0]}px;top:${b[1]}px;width:${b[2]}px;height:${b[3]}px;border:6px solid #ffd23f;border-radius:14px;box-shadow:0 0 0 9999px rgba(8,16,28,0), 0 0 28px rgba(255,210,63,.8);opacity:0"></div>`).join('')}
+        </div>`));
+        return { el, w, h: hh, boxes: boxes.map((_, i) => el.querySelector('#b' + i)) };
+      };
+      // step 1: typed URL bar + SCC nav
+      this.url = this.frame.appendChild(h(`<div class="abs" style="left:40px;top:480px;width:880px;height:120px;border-radius:60px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.15);display:flex;align-items:center;gap:22px;padding:0 40px;opacity:0">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <span id="ut" style="font-family:Inter,sans-serif;font-size:54px;font-weight:500;color:#202124"></span><span id="caret" style="width:4px;height:58px;background:#1a73e8"></span>
+      </div>`));
+      this.ut = this.url.querySelector('#ut'); this.caret = this.url.querySelector('#caret');
+      this.nav = shot('nav.png', 2000, 314, [[1178, 150, 124, 76]]);
+      // step 2: Cases menu, then hovered item
+      this.menu = shot('menu.png', 724, 882, [[272, 92, 140, 72], [96, 556, 430, 66]]);
+      this.menuH = shot('menu_hover.png', 662, 822, [[28, 486, 584, 90]]);
+      // step 3: participating page section
+      this.part = shot('participating.png', 1354, 882, [[70, 495, 1260, 270]]);
+      // step 4: paragraph with the form link
+      this.para = shot('phone_para.png', 1330, 324, [[440, 132, 400, 50]]);
+      // step 5: the form + filled case number callout
+      this.form = shot('form.png', 1378, 1244, [[44, 327, 1280, 73], [44, 464, 1280, 74], [44, 739, 1280, 74], [44, 877, 1280, 74], [44, 1015, 1280, 74], [44, 1152, 1280, 74]]);
+      this.call = this.frame.appendChild(h(`<div class="abs" style="left:70px;top:470px;width:820px;border-radius:26px;background:#fff;padding:34px 40px;box-shadow:0 30px 80px rgba(0,0,0,.45), 0 0 0 6px #ffd23f;opacity:0">
+        <img src="shots/case_filled.png" style="display:block;width:740px;height:auto">
+      </div>`));
+      this.click = this.frame.appendChild(h(`<div class="abs" style="width:90px;height:90px;border-radius:50%;border:6px solid #ffd23f;opacity:0"></div>`));
+    },
+    // place a screenshot: scale s, image point (cx,cy) at frame centre offset (ox,oy)
+    put(o, s, cx, cy, op = 1) {
+      const x = this.FW / 2 - cx * s, y = this.FH / 2 - cy * s;
+      o.el.style.transform = `translate(${x}px,${y}px) scale(${s})`;
+      o.el.style.opacity = op;
+      o.boxes.forEach(b => b.style.borderWidth = (6 / s) + 'px');
+    },
+    putTL(o, s, x, y, op = 1) {
+      o.el.style.transform = `translate(${x}px,${y}px) scale(${s})`;
+      o.el.style.opacity = op;
+      o.boxes.forEach(b => b.style.borderWidth = (6 / s) + 'px');
+    },
+    box(o, i, t, s0, s1 = Infinity) {
+      const b = o.boxes[i];
+      const a = easeBack(prog(t, s0, .35)) * (1 - prog(t, s1, .25));
+      b.style.opacity = clamp(prog(t, s0, .2)) * (1 - prog(t, s1, .25));
+      b.style.transform = `scale(${lerp(1.25, 1, clamp(a))})`;
+    },
+    tap(t, s, x, y) {   // click ripple at frame coords
+      const p = prog(t, s, .5);
+      this.click.style.left = (x - 45) + 'px'; this.click.style.top = (y - 45) + 'px';
+      this.click.style.opacity = p > 0 && p < 1 ? (1 - p) : 0;
+      this.click.style.transform = `scale(${lerp(.4, 1.6, easeOut(p))})`;
+    },
+    update(t, D) {
+      // cue times (local seconds): 0 site · 3.8 cases · 7.5 scroll · 10.8 form link · 12.7 case # + contact
+      const cues = [0, 3.8, 7.5, 10.8, 12.7, D];
+      const step = cues.findIndex((c, i) => t >= c && t < cues[i + 1]);
+      this.heads.forEach((el, i) => pop(el, t, cues[i] + (i ? .05 : .1), cues[i + 1] - .15, { dy: 30, scale: .98, outDur: .2 }));
+      this.pbars.forEach((b, i) => b.style.width = (clamp((t - cues[i]) / (cues[i + 1] - cues[i])) * 100) + '%');
+      const fin = easeOut(prog(t, 0, .5));
+      this.frame.style.opacity = fin; this.frame.style.transform = `translateY(${lerp(60, 0, fin)}px)`;
+      const vis = (a, b, fade = .25) => clamp(prog(t, a, fade)) * (1 - prog(t, b - fade, fade));
+
+      // 1 — type the URL, then the SCC header appears under it
+      const n = 'scc.virginia.gov'.length, typed = Math.round(n * prog(t, .4, 1.3));
+      this.ut.textContent = 'scc.virginia.gov'.slice(0, typed);
+      this.caret.style.opacity = (Math.floor(t * 2.5) % 2 || typed < n) ? 1 : 0;
+      this.url.style.opacity = vis(0.15, 3.8);
+      this.url.style.transform = `translateY(${-160 * easeInOut(prog(t, 1.9, .6))}px)`;
+      this.putTL(this.nav, .6, 0, lerp(740, 510, easeInOut(prog(t, 1.9, .6))), vis(2.0, 3.8));
+      this.box(this.nav, 0, t, 2.8, 3.8);
+
+      // 2 — Cases menu → Participating in SCC Cases
+      const mz = lerp(1.0, 1.1, easeInOut(prog(t, 3.8, 3.5)));
+      this.put(this.menu, mz, 362, 420, vis(3.8, 6.0, .2));
+      this.box(this.menu, 0, t, 4.0, 5.2);
+      this.box(this.menu, 1, t, 5.2, 6.0);
+      this.put(this.menuH, mz * 1.095, 331, 400, vis(5.85, 7.5, .2));
+      this.box(this.menuH, 0, t, 6.1);
+      this.tap(t, 6.0, this.FW / 2 + (320 - 331) * mz * 1.095, this.FH / 2 + (531 - 400) * mz * 1.095);
+
+      // 3 — scroll down the Participating page to Testifying by Telephone
+      const sc = easeInOut(prog(t, 7.6, 1.4));
+      const zs = lerp(.70, .76, easeInOut(prog(t, 9.0, 1.2)));
+      this.put(this.part, zs, 677, lerp(180, 560, sc), vis(7.5, 10.8));
+      this.box(this.part, 0, t, 9.1);
+
+      // 4 — the Public Witness Appearance Form link
+      const z4 = easeInOut(prog(t, 11.1, .8));
+      this.put(this.para, lerp(.72, 1.45, z4), lerp(665, 640, z4), lerp(162, 157, z4), vis(10.8, 12.7));
+      this.box(this.para, 0, t, 11.6, 12.7);
+      this.tap(t, 12.1, this.FW / 2, this.FH / 2);
+
+      // 5 — form: case number (with the filled-in screenshot), then contact fields
+      const z5 = easeInOut(prog(t, 16.6, .8));
+      this.put(this.form, .697, 689, lerp(560, 640, z5), vis(12.7, D + 1));
+      this.box(this.form, 0, t, 13.0, 16.6);
+      const ci = easeBack(prog(t, 13.6, .45)), co = easeInOut(prog(t, 16.4, .3));
+      this.call.style.opacity = clamp(prog(t, 13.6, .25)) * (1 - co);
+      this.call.style.transform = `translateY(${lerp(80, 0, ci) + co * 40}px) scale(${lerp(.85, 1, ci)})`;
+      [1, 2, 3, 4, 5].forEach((i, k) => this.box(this.form, i, t, 17.4 + k * .3));
+    }
+  },
 ];
 
 /* ---------- driver API used by render.mjs ---------- */
 let current = null;
-window.SCENES = SCENES.map(s => ({ id: s.id, start: s.start, end: s.end }));
+window.SCENES = SCENES.map(s => ({ id: s.id, start: s.start, end: s.end, opaque: !!s.opaque }));
 window.loadScene = (id) => {
   const st = document.getElementById('stage'); st.innerHTML = '';
   current = SCENES.find(s => s.id === id); current.build(st);

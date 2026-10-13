@@ -39,14 +39,15 @@ for (const s of scenes) {
     continue;
   }
   const n = Math.round(D * FPS);
-  const enc = green
-    ? ['-c:v', 'libx264', '-crf', '14', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', path.join(outDir, `${s.id}.mp4`)]
+  const mp4 = green || s.opaque;   // full-screen scenes have no transparency → plain H.264 MP4
+  const enc = mp4
+    ? ['-c:v', 'libx264', '-crf', '14', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', path.join(s.opaque ? path.join(here, 'out') : outDir, `${s.id}.mp4`)]
     : ['-c:v', 'qtrle', '-pix_fmt', 'argb', path.join(outDir, `${s.id}.mov`)];
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-', ...enc],
     { stdio: ['pipe', 'inherit', 'inherit'] });
   for (let f = 0; f < n; f++) {
     await page.evaluate(t => window.seek(t), f / FPS);
-    const buf = await page.screenshot({ omitBackground: !green });
+    const buf = await page.screenshot({ omitBackground: !mp4 });
     if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
   }
   ff.stdin.end();
