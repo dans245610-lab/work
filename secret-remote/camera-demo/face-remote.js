@@ -17,9 +17,9 @@ import { FilesetResolver, FaceLandmarker } from "./vendor/mediapipe/vision_bundl
 const CFG = {
   browThreshold: 0.55, browRearm: 0.8, browDebounceMs: 400,      // eyebrow raise is instant (rising edge)
   blinkThreshold: 0.65, doubleBlinkMs: 700, minBlinkGapMs: 90, longBlinkMs: 700,
-  winkClosed: 0.55, winkDiff: 0.4, winkHoldMs: 150,
+  winkClosedLeft: 0.55, winkClosedRight: 0.55, winkDiffLeft: 0.4, winkDiffRight: 0.4, winkHoldMs: 150,
   jawThreshold: 0.5, jawDebounceMs: 1000, jawEnabled: true,
-  frownThreshold: 0.45, smileThreshold: 0.6, smileHoldMs: 400, puckerThreshold: 0.6, mouthSideThreshold: 0.5, holdMs: 250,
+  frownThreshold: 0.45, smileThreshold: 0.6, smileHoldMs: 400, puckerThreshold: 0.6, mouthLeftThreshold: 0.5, mouthRightThreshold: 0.5, holdMs: 250,
   tiltDeg: 18, tiltHoldMs: 350,
   nodDeg: 7, nodMaxDeg: 35, nodWindowMs: 900, shakeDeg: 9, shakeWindowMs: 1300,
   noFaceMs: 1000, everyOtherFrame: false,
@@ -115,8 +115,8 @@ function feed(s, now, head) {
   if (closed && !state.longFired && now - state.closedSince >= CFG.longBlinkMs) { state.longFired = true; state.lastBlink = -1e9; emit("longBlink"); }
   state.eyesClosed = closed;
   // Winks: one eye shut, the other clearly open (MediaPipe lets a wink pull the other eye's score up a bit).
-  held("winkLeft", blinkL > CFG.winkClosed && blinkL - blinkR > CFG.winkDiff ? 1 : 0, 1, CFG.winkHoldMs, now);
-  held("winkRight", blinkR > CFG.winkClosed && blinkR - blinkL > CFG.winkDiff ? 1 : 0, 1, CFG.winkHoldMs, now);
+  held("winkLeft", blinkL > CFG.winkClosedLeft && blinkL - blinkR > CFG.winkDiffLeft ? 1 : 0, 1, CFG.winkHoldMs, now);
+  held("winkRight", blinkR > CFG.winkClosedRight && blinkR - blinkL > CFG.winkDiffRight ? 1 : 0, 1, CFG.winkHoldMs, now);
   // Jaw drop.
   if (CFG.jawEnabled) {
     if (state.jawArmed && jaw >= CFG.jawThreshold && now - state.lastJaw > CFG.jawDebounceMs) { state.jawArmed = false; state.lastJaw = now; emit("jaw", jaw); }
@@ -126,8 +126,8 @@ function feed(s, now, head) {
   held("frown", frown, CFG.frownThreshold, CFG.holdMs, now);
   held("smile", smile, CFG.smileThreshold, CFG.smileHoldMs, now);
   held("pucker", pucker, CFG.puckerThreshold, CFG.holdMs, now);
-  held("mouthLeft", mouthL, CFG.mouthSideThreshold, CFG.holdMs, now);
-  held("mouthRight", mouthR, CFG.mouthSideThreshold, CFG.holdMs, now);
+  held("mouthLeft", mouthL, CFG.mouthLeftThreshold, CFG.holdMs, now);
+  held("mouthRight", mouthR, CFG.mouthRightThreshold, CFG.holdMs, now);
   if (head) feedHead(head, now);
   const values = { brow, blinkL, blinkR, jaw, frown, smile, pucker, mouthL, mouthR, ...(head || {}) };
   if (sampler) sampler(values, now);

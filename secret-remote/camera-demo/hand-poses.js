@@ -21,7 +21,7 @@ const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const FINGERS = [[8, 6], [12, 10], [16, 14], [20, 18]];   // [tip, pip] for index, middle, ring, pinky
 
 export const POSE_CFG = {
-  extended: 1.2, curled: 1.05,          // finger tip-to-wrist ÷ pip-to-wrist
+  extended: 1.2, curled: 1.05,          // finger tip-to-wrist ÷ pip-to-wrist (a number, or [index, middle, ring, pinky] after calibration)
   thumbOut: 1.0,                        // thumb tip to pinky knuckle ÷ palm: tucked thumbs stay below ~0.7
   okTouch: 0.35,                        // thumb tip to index tip ÷ palm for the OK ring
   thumbReach: 0.62, thumbVertical: 0.45, thumbSlope: 1.0, sideways: 1.0,
@@ -29,14 +29,21 @@ export const POSE_CFG = {
 
 export function handPoints(lm, aspect = 4 / 3) { return lm.map(p => [(p.x ?? p[0]) * aspect, p.y ?? p[1]]); }
 
-export function classifyHand(lm, aspect = 4 / 3) {
-  const P = handPoints(lm, aspect), C = POSE_CFG;
-  const palm = d(P[0], P[9]);
+// The raw measurements behind the poses (also what calibration records).
+export function handFeatures(lm, aspect = 4 / 3) {
+  const P = handPoints(lm, aspect), palm = d(P[0], P[9]);
   if (palm < 1e-4) return null;
-  const r = FINGERS.map(([tip, pip]) => d(P[0], P[tip]) / d(P[0], P[pip]));
-  const up = r.map(v => v > C.extended), down = r.map(v => v < C.curled);
+  return { P, palm, ratios: FINGERS.map(([tip, pip]) => d(P[0], P[tip]) / d(P[0], P[pip])), thumbOut: d(P[4], P[17]) / palm };
+}
+const at = (x, i) => (Array.isArray(x) ? x[i] : x);
+
+export function classifyHand(lm, aspect = 4 / 3) {
+  const f = handFeatures(lm, aspect), C = POSE_CFG;
+  if (!f) return null;
+  const { P, palm, ratios: r } = f;
+  const up = r.map((v, n) => v > at(C.extended, n)), down = r.map((v, n) => v < at(C.curled, n));
   const [I, M, R, K] = up, [i, m, rr, k] = down;           // K = pinky up, k = pinky down
-  const thumbOut = d(P[4], P[17]) / palm > C.thumbOut;
+  const thumbOut = f.thumbOut > C.thumbOut;
   if (I && M && R && K) return thumbOut ? "palm" : "four";
   if (M && R && K && !I && d(P[4], P[8]) / palm < C.okTouch) return "ok";
   if (I && M && R && k) return "three";
@@ -79,9 +86,11 @@ export function makePoseTrigger(onPose, { holdMs = 300, releaseMs = 300, stillTo
 
 // Horizontal swipe: the palm travels ≥ minTravel of the frame width within windowMs, mostly sideways.
 // The camera image isn't mirrored, so the hand moving towards image-left is moving to *your* right.
-export function makeSwipeDetector(onSwipe, { windowMs = 450, minTravel = 0.22, cooldownMs = 700 } = {}) {
+export const SWIPE_CFG = { windowMs: 450, minTravel: 0.22, cooldownMs: 700 };
+export function makeSwipeDetector(onSwipe, opts = {}) {
   let hist = [], quietUntil = 0;
   return function update(pos, now) {
+    const { windowMs, minTravel, cooldownMs } = { ...SWIPE_CFG, ...opts };
     if (!pos) { hist = []; return; }
     hist.push({ ...pos, t: now });
     while (hist.length && now - hist[0].t > windowMs) hist.shift();

@@ -49,6 +49,21 @@
   .err { color: var(--again); } .okc { color: var(--ok); }
   kbd { font: 12px ui-monospace, Menlo, monospace; background: #efebe4; border-radius: 4px; padding: 1px 5px; }
   [hidden] { display: none !important; }
+  #calib { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 6px 4px; }
+  .cal-icon { font-size: 64px; text-align: center; line-height: 1.1; margin-top: 8px; }
+  .cal-title { font-size: 24px; font-weight: 700; text-align: center; }
+  .cal-say { font-size: 17px; text-align: center; max-width: 34em; margin: 0 auto; line-height: 1.45; }
+  .cal-phase { text-align: center; font-weight: 700; font-size: 15px; min-height: 1.4em; }
+  .cal-phase.go { color: var(--ok); }
+  .track { position: relative; height: 10px; background: #efebe4; border-radius: 99px; overflow: hidden; }
+  .track.tall { height: 18px; border-radius: 6px; }
+  .track .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width .08s linear; }
+  .track .fill.live { background: var(--ok); }
+  .cal-result { min-height: 3em; text-align: center; font-size: 15px; line-height: 1.45; }
+  .cal-result.ok { color: var(--ok); } .cal-result.bad { color: var(--warn); }
+  #calReport { list-style: none; padding: 0; margin: 4px 0; font-size: 13px; line-height: 1.45; max-height: 340px; overflow-y: auto; }
+  #calReport li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  button.linkish { background: none; border: 0; padding: 4px 6px; color: var(--accent); text-decoration: underline; font-weight: 500; }
   details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
   ol.steps { padding-left: 20px; margin: 6px 0; font-size: 13px; line-height: 1.6; }
   code { font: 12px ui-monospace, Menlo, monospace; background: #efebe4; padding: 1px 4px; border-radius: 4px; }
@@ -68,6 +83,20 @@
       </span>
     </div>
     <div class="panel" id="stage">
+      <div id="calib" hidden aria-live="polite">
+        <div class="row" style="justify-content:space-between"><span class="muted" id="calStepNo"></span>
+          <span class="row"><button id="calSkip">Skip step <kbd>S</kbd></button><button id="calStop">Stop <kbd>Esc</kbd></button></span></div>
+        <div class="cal-icon" id="calIcon"></div>
+        <div class="cal-title" id="calTitle"></div>
+        <div class="cal-say" id="calSay"></div>
+        <div class="cal-phase" id="calPhase"></div>
+        <div class="track"><div class="fill" id="calProg"></div></div>
+        <div id="calMeterBox"><div class="muted" style="font-size:12px;margin-top:10px">What the camera sees</div>
+        <div class="track tall"><div class="fill live" id="calMeter"></div></div></div>
+        <div id="calResult" class="cal-result"></div>
+        <ul id="calReport" hidden></ul>
+        <div class="row" style="justify-content:center"><button id="calDone" class="primary" hidden>Done</button></div>
+      </div>
       <div class="cardbox" id="cardbox"></div>
       <div id="demoControls">
         <div class="rates" id="rateBtns"></div>
@@ -109,8 +138,13 @@
       <video id="video" playsinline muted></video>
       <div class="row" style="margin-top:6px">
         <span class="pill" id="handTxt">hand: –</span><span class="pill" id="faceTxt">face: –</span><span class="pill" id="seenTxt">seen: –</span>
-        <button id="camCal">Calibrate eyebrows</button>
       </div>
+      <div class="row" style="margin-top:8px">
+        <button id="calMine">Calibrate my gestures</button>
+        <button id="calAll" class="linkish">all 28</button>
+        <button id="calReset" class="linkish">reset</button>
+      </div>
+      <div class="muted" id="calInfo" style="font-size:12px;margin-top:4px"></div>
     </div>
     <div class="row" style="margin-top:8px">
       <label class="muted"><input type="checkbox" id="listen" checked> Watching (gestures act on cards)</label>
@@ -232,6 +266,7 @@ function toText(html) {
 function answerOnly(card) { const i = (card.answer || "").search(/<hr id=["']?answer/i); return i >= 0 ? card.answer.slice(i) : card.answer; }
 
 let backend = DemoDeck;
+let Cal = null, calibrating = false, calControl = null;   // calibration (loaded with the camera)
 
 /* ============ Rendering ============ */
 function setCard(v) {
@@ -300,6 +335,7 @@ function syncUI() {
   $("preset").value = preset; $("presetHelp").textContent = PRESETS[preset].help;
   for (const [id] of GESTURES) { $("m-" + id).value = map[id]; $("m-" + id).classList.toggle("on", map[id] !== "none"); }
   for (const [group, list] of GROUPS) { const n = list.filter(([id]) => map[id] !== "none").length; $("n-" + group).textContent = n ? `· ${n} on` : ""; }
+  if (Cal) updateCalInfo();
   $("legend").replaceChildren(...GESTURES.filter(([id]) => map[id] !== "none").map(([id, icon, label]) => {
     const sp = document.createElement("span"); sp.title = label; sp.append(icon + " "); const b = document.createElement("b"); b.textContent = SHORT[map[id]]; sp.append(b); return sp; }));
 }
@@ -313,7 +349,7 @@ let seenT = 0;
 function gesture(g) {
   const name = `${G[g].icon} ${G[g].label}`;
   $("seenTxt").textContent = "seen: " + name; clearTimeout(seenT); seenT = setTimeout(() => ($("seenTxt").textContent = "seen: –"), 2500);
-  if (map[g] === "none") return;
+  if (map[g] === "none" || calibrating) return;
   if (!$("listen").checked) { log(`${name}: seen, but watching is paused`); return; }
   if (performance.now() - lastActionAt < COOLDOWN_MS) { log(`${name}: ignored (cooldown)`); return; }
   perform(map[g], name);
@@ -358,6 +394,7 @@ $("camBtn").onclick = async () => {
       onFace: f => { $("faceTxt").textContent = f ? "face: ✓" : "face: looking…"; },
     });
     cam.use.hands = $("useHands").checked; cam.use.face = $("useFace").checked;
+    await loadCal(); Cal.applyCalibration(store.get("calibration", null)); updateCalInfo();
     $("camBox").hidden = false; $("camBtn").textContent = "Stop camera";
     $("inStatus").textContent = "Camera on. Try an open hand 🖐 or a nod to test.";
   } catch (e) {
@@ -366,10 +403,86 @@ $("camBtn").onclick = async () => {
 };
 $("useHands").onchange = e => cam && (cam.use.hands = e.target.checked);
 $("useFace").onchange = e => cam && (cam.use.face = e.target.checked);
-$("camCal").onclick = async () => { $("camCal").disabled = true; await cam.calibrateFace((p, t) => ($("inStatus").textContent = t)); $("camCal").disabled = false; };
+
+/* ============ Calibration (every gesture; see camera-demo/calibration.js) ============ */
+const loadCal = async () => (Cal = Cal || await import("./camera-demo/calibration.js"));
+function usedGestures() { return GESTURES.filter(([id]) => map[id] !== "none").map(([id]) => id); }
+function updateCalInfo() {
+  const saved = store.get("calibration", null);
+  const plan = Cal ? Cal.planSteps(usedGestures()) : null;
+  $("calMine").textContent = plan ? `Calibrate my gestures (~${Math.max(1, Math.round(Cal.estimateSeconds(plan) / 60 * 2) / 2)} min)` : "Calibrate my gestures";
+  if (!saved) { $("calInfo").textContent = "Not calibrated yet: using defaults that suit most people."; return; }
+  const okN = saved.report.filter(r => r.ok).length, badN = saved.report.filter(r => r.ok === false).length;
+  $("calInfo").textContent = `Calibrated ${new Date(saved.at).toLocaleDateString()} · ${okN} ✓${badN ? ` · ${badN} ⚠ (defaults kept)` : ""}`;
+}
+async function startCalibration(all) {
+  if (calibrating) return;
+  await loadCal();
+  const steps = Cal.planSteps(all ? GESTURES.map(([id]) => id) : usedGestures());
+  if (!steps.length) { flash("No gestures are mapped to anything yet"); return; }
+  if (!cam && !window.__calTestFrames) { flash("Start the camera first"); return; }
+  calibrating = true;
+  const prevUse = cam ? { ...cam.use } : null; if (cam) { cam.use.hands = true; cam.use.face = true; }
+  $("calib").hidden = false; $("cardbox").hidden = true; $("demoControls").hidden = true; $("legend").hidden = true;
+  $("calReport").hidden = true; $("calDone").hidden = true; $("calSkip").hidden = false; $("calStop").hidden = false; $("calMeterBox").hidden = false;
+  calControl = { skip: false, stop: false };
+  let stepId = null;
+  const source = window.__calTestFrames
+    ? { subscribe(fn) { const t0 = performance.now(), iv = setInterval(() => fn(window.__calTestFrames(stepId, (performance.now() - t0) / 1000)), 33); return () => clearInterval(iv); } }
+    : { subscribe(fn) { cam.onRaw = fn; return () => { cam.onRaw = null; }; } };
+  const ui = {
+    control: calControl,
+    step(st, i, n) {
+      stepId = st.id;
+      $("calStepNo").textContent = `Calibration · step ${i + 1} of ${n}`;
+      $("calIcon").textContent = st.icon; $("calTitle").textContent = st.title; $("calSay").textContent = st.say;
+      $("calResult").textContent = ""; $("calResult").className = "cal-result"; $("calMeter").style.width = "0";
+    },
+    phase(kind, frac) {
+      $("calPhase").className = "cal-phase" + (kind === "go" ? " go" : "");
+      $("calPhase").textContent = kind === "go" ? "Go! Do it now…" : "Get ready…";
+      $("calProg").style.width = `${Math.round((kind === "go" ? frac : 1 - frac) * 100)}%`;
+      $("calProg").style.opacity = kind === "go" ? 1 : 0.35;
+    },
+    meter(x) { $("calMeter").style.width = `${Math.round(Math.max(0, Math.min(1, x)) * 100)}%`; },
+    result(st, res) {
+      $("calPhase").textContent = "";
+      $("calResult").className = "cal-result " + (res.ok ? "ok" : res.ok === false ? "bad" : "");
+      $("calResult").textContent = (res.ok ? "✓ " : res.ok === false ? "⚠ " : "") + res.msg;
+    },
+  };
+  const cal = await Cal.runCalibration(steps, source, ui);
+  // Keep earlier results for gestures not covered this time; this run's values win.
+  const prev = store.get("calibration", null) || { face: {}, hand: {}, swipe: {}, report: [] };
+  const report = [...prev.report.filter(r => !cal.report.some(c => c.id === r.id)), ...cal.report];
+  const merged = { face: { ...prev.face, ...cal.face }, hand: { ...prev.hand, ...cal.hand }, swipe: { ...prev.swipe, ...cal.swipe }, report, at: cal.at };
+  if (cal.report.length) store.set("calibration", merged);
+  Cal.applyCalibration(store.get("calibration", null));
+  if (prevUse) Object.assign(cam.use, prevUse);
+  // Summary
+  $("calStepNo").textContent = calControl.stop ? "Calibration stopped" : "Calibration finished";
+  $("calIcon").textContent = calControl.stop ? "⏹" : "✅"; $("calTitle").textContent = calControl.stop ? "Stopped. Finished steps were saved." : "All done";
+  $("calSay").textContent = "Steps marked ⚠ kept their default setting. You can redo calibration any time.";
+  $("calPhase").textContent = ""; $("calResult").textContent = ""; $("calProg").style.width = "100%"; $("calMeterBox").hidden = true;
+  $("calReport").replaceChildren(...cal.report.map(r => { const li = document.createElement("li"); li.textContent = `${r.ok ? "✓" : r.ok === false ? "⚠" : "–"} ${r.icon} ${r.title}: ${r.msg}`; return li; }));
+  $("calReport").hidden = false; $("calSkip").hidden = true; $("calStop").hidden = true; $("calDone").hidden = false; $("calDone").focus();
+  updateCalInfo();
+}
+function endCalibration() { calibrating = false; $("calib").hidden = true; $("cardbox").hidden = false; $("demoControls").hidden = false; $("legend").hidden = false; render(); }
+$("calMine").onclick = () => startCalibration(false);
+$("calAll").onclick = () => startCalibration(true);
+$("calReset").onclick = async () => { await loadCal(); store.set("calibration", null); Cal.applyCalibration(null); updateCalInfo(); flash("Calibration reset to defaults"); };
+$("calSkip").onclick = () => calControl && (calControl.skip = true);
+$("calStop").onclick = () => calControl && (calControl.stop = true);
+$("calDone").onclick = endCalibration;
 
 addEventListener("keydown", e => {
   if (e.target.closest("input, select")) return;
+  if (calibrating) {   // during calibration only the wizard's keys work
+    if (e.key === "Escape") calControl.stop = true;
+    else if (e.key === "s" || e.key === "S") calControl.skip = true;
+    return;
+  }
   if (e.code === "Space") { e.preventDefault(); perform("next", "Space"); }
   else if (/^[1-4]$/.test(e.key)) perform("rate" + e.key, `key ${e.key}`);
   else if (e.key === "u" || e.key === "U") perform("undo", "U");
@@ -377,7 +490,7 @@ addEventListener("keydown", e => {
 });
 
 setMode(store.get("mode", "demo") === "anki");
-if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, get cam() { return cam; }, get backend() { return backend; } };
+if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, startCalibration, loadCal, get Cal() { return Cal; }, get cam() { return cam; }, get backend() { return backend; } };
 </script>
 </body>
 </html>

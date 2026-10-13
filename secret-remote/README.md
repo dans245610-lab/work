@@ -84,6 +84,27 @@ There are 28 gestures. Every one can be mapped to Next, Again, Hard, Good, Easy,
 | **Face** (`face-remote.js`, MediaPipe blendshapes) | 🤨 eyebrows up · 😠 frown · 😁 big smile (both sides, held 0.4 s) · 😗 pucker · 😮 mouth open · 😏 mouth to the left or right · double blink · eyes shut 1 s · 😉 wink left or right eye | Rising edge plus a hold time on each blendshape score. Winks need one eye shut *and* clearly more shut than the other, held 150 ms, so ordinary blinks never count. |
 | **Head** (face transformation matrix) | nod (yes) · shake (no) · tilt left · tilt right | **Nod:** 2 swings of 7–35° in pitch within 0.9 s. **Shake:** 3 swings of 9° or more in yaw within 1.3 s. Both re-arm only after the head has been still for 0.4 s, so "yes-yes-yes" counts once. **Tilt:** 18° of roll away from your usual resting tilt, held 0.35 s. |
 
+### Calibration
+
+**Calibrate my gestures** (about 1 minute for the default preset; **all 28** takes about 3 minutes) walks through each gesture you've mapped. Every step shows the instruction, a get-ready countdown, a live "what the camera sees" bar, and then the result.
+
+| Gesture type | What's measured | What it sets |
+|---|---|---|
+| Face expressions | Relaxed face (3 s), then the expression twice | Trigger halfway between relaxed and your weaker attempt. Fails (keeps the default) if it barely registered. |
+| Eyes closed (double/long blink) | Both eyes shut twice | "Closed" line for your eyes (hooded eyes read as half-closed when open) |
+| Winks, each side | One-eye winks | That eye's closed line, and how much more closed than the other eye it must be. Fails if both eyes close together. |
+| Nod / shake | Your natural nod or shake | Swing size at 55% of yours, clamped to a sane range |
+| Tilt | Tilt left, then right | Trigger at 60% of your smaller tilt |
+| Hands | Open hand, fist, 4 fingers with thumb tucked | Per-finger "straight" and "folded" lines, and the thumb-out line. Then each pose you use is checked; if one fails, it tells you what it looked like instead. |
+| Swipe | A few sideways swipes | Distance needed: 60% of your swipe |
+
+- **Hand calibration only ever loosens the defaults,** for fingers that don't fully straighten or fold.
+  - Tested on a simulated stiff hand: "open hand" and "1 finger" went from unrecognised to recognised.
+  - Calibrating with someone else's hand (the worst case) changed recognition on the 9,000-sample dataset by at most 3 points.
+- **Saving:** results are saved on this device and applied whenever the camera starts. A partial run keeps earlier results for the other gestures. **reset** goes back to the defaults.
+- **During calibration** gestures don't act on cards. `S` skips a step and `Esc` stops.
+- **On a slow computer** a step keeps recording, up to 2.5× longer, until it has enough frames to judge.
+
 ### How each cue was checked
 
 - **Hand poses, against about 9,000 real hand-landmark samples (ASL alphabet photos):**

@@ -4,10 +4,11 @@
 //   const cam = await GestureCam.start(videoEl, { onGesture(name), onHandPose(pose|null), onFace(found), onFaceValues(v) })
 //   cam.use.hands = false / cam.use.face = false   // switch a tracker off
 //   await cam.calibrateFace(onStep)                  // eyebrow calibration (see face-remote.js)
+//   cam.onRaw = frame => {}                         // every processed frame: { t, aspect, face: values|null, hands: [{ lm, pose, pos }] }
 //   cam.stop()
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from "./vendor/mediapipe/vision_bundle.js";
 import { FaceRemote } from "./face-remote.js";
-import { classifyHand, palmCenter, makePoseTrigger, makeSwipeDetector } from "./hand-poses.js";
+import { classifyHand, palmCenter, makePoseTrigger, makeSwipeDetector, POSE_CFG, SWIPE_CFG } from "./hand-poses.js";
 
 async function create(Task, fileset, model, extra) {
   const opts = { baseOptions: { modelAssetPath: new URL(`./models/${model}`, import.meta.url).href, delegate: "GPU" }, ...extra };
@@ -26,7 +27,8 @@ async function start(video, h = {}) {
   ]);
   const emit = g => h.onGesture && h.onGesture(g);
   FaceRemote.reset();
-  FaceRemote.setHandlers({ onGesture: emit, onFace: f => h.onFace && h.onFace(f), onFrame: v => h.onFaceValues && h.onFaceValues(v) });
+  let faceVals = null;
+  FaceRemote.setHandlers({ onGesture: emit, onFace: f => h.onFace && h.onFace(f), onFrame: v => { faceVals = v; h.onFaceValues && h.onFaceValues(v); } });
   const trigger = makePoseTrigger(emit), swipe = makeSwipeDetector(emit);
   const use = { hands: true, face: true };
   let raf = 0, lastT = -1, lastPose, openAt = -1e9;
@@ -35,27 +37,30 @@ async function start(video, h = {}) {
     raf = requestAnimationFrame(tick);
     if (video.readyState < 2 || video.currentTime === lastT) return;
     lastT = video.currentTime;
-    const now = performance.now();
+    const now = performance.now(), frame = { t: now, aspect: video.videoWidth / video.videoHeight || 4 / 3, face: null, hands: [] };
     if (use.hands) {
-      const r = hands.detectForVideo(video, now), aspect = video.videoWidth / video.videoHeight || 4 / 3;
-      const found = (r.landmarks || []).map(lm => ({ lm, pose: classifyHand(lm, aspect) }));
+      const r = hands.detectForVideo(video, now);
+      const found = (r.landmarks || []).map(lm => ({ lm, pose: classifyHand(lm, frame.aspect), pos: palmCenter(lm) }));
+      frame.hands = found;
       // Prefer a hand that's making a sign over one that's just resting (fist / unclear).
       const best = found.find(f => f.pose && f.pose !== "fist") || found.find(f => f.pose) || found[0];
-      const pose = best ? best.pose : null, pos = best ? palmCenter(best.lm) : null;
+      const pose = best ? best.pose : null, pos = best ? best.pos : null;
       trigger(pose, now, pos);
       // Swipes only count with an open hand (seen open in the last half second), not a hand drifting into view.
       if (pose === "palm" || pose === "four") openAt = now;
       swipe(pos && now - openAt < 500 ? pos : null, now);
       if (pose !== lastPose) { lastPose = pose; h.onHandPose && h.onHandPose(pose); }
     }
-    if (use.face) FaceRemote.process(face.detectForVideo(video, now), now);
+    if (use.face) { faceVals = null; FaceRemote.process(face.detectForVideo(video, now), now); frame.face = faceVals; }
+    if (api.onRaw) api.onRaw(frame);
   }
-  tick();
-  return {
-    use,
+  const api = {
+    use, onRaw: null,
     calibrateFace: onStep => FaceRemote.calibrate(onStep),
     stop() { cancelAnimationFrame(raf); stream.getTracks().forEach(t => t.stop()); video.srcObject = null; face.close(); hands.close(); },
   };
+  tick();
+  return api;
 }
 
-export const GestureCam = { start, FaceRemote };
+export const GestureCam = { start, FaceRemote, POSE_CFG, SWIPE_CFG };
