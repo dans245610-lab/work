@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hands-free Anki Clicker</title>
+<style>
+  :root { --bg: #f3f1ec; --fg: #23211d; --muted: #6e6960; --accent: #2f6f8f; --line: #ddd7cc; --card: #fff; --ok: #2f7d5b; --warn: #b45a1c; --again: #c0392b; --hard: #8a6d1c; --good: #2f7d5b; --easy: #2f6f8f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, sans-serif; }
+  main { max-width: 1060px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 0 6px; }
+  .panel h2:first-child { margin-top: 0; }
+  button, select, input { font: 14px system-ui, sans-serif; }
+  button { font-weight: 600; border-radius: 8px; border: 1px solid var(--line); background: #f7f5f1; padding: 8px 12px; cursor: pointer; color: var(--fg); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  select, input[type=text], input[type=password] { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; color: var(--fg); min-width: 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #fff; }
+  .seg button[aria-pressed=true] { background: var(--accent); color: #fff; }
+  #stage { min-height: 420px; display: flex; flex-direction: column; }
+  .cardbox { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 24px 16px; gap: 14px; }
+  .q { font-size: 34px; font-weight: 600; overflow-wrap: anywhere; }
+  .a { font-size: 26px; color: var(--accent); overflow-wrap: anywhere; }
+  .divider { height: 1px; background: var(--line); margin: 0 10%; }
+  .counts { font: 13px ui-monospace, Menlo, monospace; color: var(--muted); text-align: center; }
+  .rates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+  .rates button { color: #fff; border: 0; padding: 12px 6px; }
+  .r1 { background: var(--again); } .r2 { background: var(--hard); } .r3 { background: var(--good); } .r4 { background: var(--easy); }
+  #flash { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); background: var(--fg); color: #fff; padding: 8px 16px; border-radius: 99px; font-weight: 600; font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 5; }
+  #flash.show { opacity: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; color: var(--muted); transition: background .2s, color .2s; }
+  .chip.hit { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .map { display: grid; grid-template-columns: 1fr 130px; gap: 6px 8px; align-items: center; font-size: 13px; }
+  video { width: 100%; max-width: 320px; border-radius: 10px; transform: scaleX(-1); background: #000; display: block; margin-top: 8px; }
+  .pill { font: 12px ui-monospace, Menlo, monospace; background: #efebe4; border-radius: 99px; padding: 3px 9px; }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-top: 12px; font-size: 14px; color: var(--muted); }
+  .legend b { color: var(--fg); }
+  #log { font: 12px ui-monospace, Menlo, monospace; height: 110px; overflow-y: auto; background: #f7f5f1; border-radius: 8px; padding: 6px 8px; margin: 0; list-style: none; }
+  .note { background: #fff4e3; border: 1px solid #f0d9b5; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.5; margin: 0 0 8px; }
+  .status { font-size: 14px; margin: 6px 0; min-height: 1.4em; }
+  .err { color: var(--again); } .okc { color: var(--ok); }
+  kbd { font: 12px ui-monospace, Menlo, monospace; background: #efebe4; border-radius: 4px; padding: 1px 5px; }
+  [hidden] { display: none !important; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  ol.steps { padding-left: 20px; margin: 6px 0; font-size: 13px; line-height: 1.6; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: #efebe4; padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="flash" role="status" aria-live="polite"></div>
+<main>
+  <section>
+    <h1>Hands-free Anki clicker</h1>
+    <p class="muted">Review flashcards without touching anything: show a hand or raise your eyebrows. Treadmill desk, kitchen or workshop.
+      Keyboard on this page: <kbd>Space</kbd> next · <kbd>1</kbd>–<kbd>4</kbd> rate · <kbd>U</kbd> undo · <kbd>L</kbd> pause watching.</p>
+    <div class="row" style="margin:10px 0">
+      <span class="seg" role="group" aria-label="Deck source">
+        <button id="modeDemo" aria-pressed="true">Practice deck (no Anki needed)</button>
+        <button id="modeAnki" aria-pressed="false">My Anki (AnkiConnect)</button>
+      </span>
+    </div>
+    <div class="panel" id="stage">
+      <div class="cardbox" id="cardbox"></div>
+      <div id="demoControls">
+        <div class="rates" id="rateBtns"></div>
+        <div class="row" style="justify-content:center;margin-top:10px;gap:14px"><span class="counts" id="counts"></span><button id="undoBtn">↶ Undo <kbd>U</kbd></button></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div id="ankiSetup" hidden>
+      <h2>Connect to Anki</h2>
+      <details id="howto"><summary>First time? Install AnkiConnect (2 minutes)</summary>
+        <ol class="steps">
+          <li>Open Anki desktop → <b>Tools → Add-ons → Get Add-ons…</b></li>
+          <li>Enter code <code>2055492159</code> (AnkiConnect), then restart Anki.</li>
+          <li>Keep Anki open, then press <b>Connect</b> below. Anki will ask once whether to allow this page.</li>
+        </ol>
+      </details>
+      <div class="row" style="margin-top:8px">
+        <input type="password" id="apiKey" placeholder="API key (only if you set one)" autocomplete="off" style="flex:1">
+        <button class="primary" id="connectBtn">Connect</button>
+      </div>
+      <div class="status muted" id="ankiStatus">Not connected.</div>
+      <div class="row" id="deckRow" hidden>
+        <select id="deckSel" aria-label="Deck" style="flex:1"></select>
+        <button id="reviewBtn">Start review</button>
+      </div>
+    </div>
+
+    <h2>Camera</h2>
+    <div class="row">
+      <button class="primary" id="camBtn">Start camera</button>
+      <label class="muted"><input type="checkbox" id="useHands" checked> Hands</label>
+      <label class="muted"><input type="checkbox" id="useFace" checked> Face</label>
+    </div>
+    <div class="status muted" id="inStatus">Video is analysed on this computer and never recorded or sent.</div>
+    <div id="camBox" hidden>
+      <video id="video" playsinline muted></video>
+      <div class="row" style="margin-top:6px">
+        <span class="pill" id="handTxt">hand: –</span><span class="pill" id="faceTxt">face: –</span>
+        <button id="camCal">Calibrate eyebrows</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="muted"><input type="checkbox" id="listen" checked> Watching (gestures act on cards)</label>
+    </div>
+    <div class="chips" id="chips" style="margin-top:6px" aria-label="Detected gestures"></div>
+
+    <h2>Gestures → actions</h2>
+    <div class="map" id="map"></div>
+    <p class="muted" style="margin:6px 0 0"><b>Next ▸</b> shows the answer, or rates Good if the answer is already showing. Hold a hand pose for a moment; it fires once. Drop your hand to do it again. Hand poses work best with your hand about a forearm's length from the camera.</p>
+
+    <h2>Log</h2>
+    <ul id="log"></ul>
+
+    <h2>Honest limits</h2>
+    <p class="note">Anki desktop has to be open on <b>this</b> computer. The phone apps don't run AnkiConnect. Nothing leaves your machine: this page only talks to Anki on <code>localhost</code>.</p>
+    <p class="note">Your camera light will be on while the camera runs; a page can't hide it. Misfire? Tap <b>Undo</b> or press <kbd>U</kbd>.</p>
+  </aside>
+</main>
+
+<script type="module">
+
+const $ = id => document.getElementById(id);
+const store = { get(k, d) { try { const v = localStorage.getItem("ankiClicker." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+                set(k, v) { try { localStorage.setItem("ankiClicker." + k, JSON.stringify(v)); } catch {} } };
+function log(t) { const li = document.createElement("li"); li.textContent = `${new Date().toLocaleTimeString()}  ${t}`; $("log").prepend(li); while ($("log").children.length > 60) $("log").lastChild.remove(); }
+let flashT = 0;
+function flash(t) { $("flash").textContent = t; $("flash").classList.add("show"); clearTimeout(flashT); flashT = setTimeout(() => $("flash").classList.remove("show"), 900); }
+
+/* ============ Backends: same interface, so the clicker doesn't care which one it drives ============ */
+const EASE = { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" };
+
+// Practice deck: a small stand-in for Anki's review screen, so you can try the clicker without installing anything.
+const DemoDeck = (() => {
+  const CARDS = [["el perro", "the dog"], ["la manzana", "the apple"], ["la biblioteca", "the library"], ["el martes", "Tuesday"], ["despacio", "slowly"],
+    ["la llave", "the key"], ["el puente", "the bridge"], ["cansado", "tired"], ["la cuchara", "the spoon"], ["todavía", "still / yet"]];
+  let queue, shown, done, history, again;
+  function reset() { queue = CARDS.map((c, i) => ({ id: i, q: c[0], a: c[1] })); shown = false; done = 0; again = 0; history = []; }
+  const snap = () => history.push({ queue: queue.slice(), shown, done, again });
+  reset();
+  return {
+    name: "Practice deck",
+    async next() { if (!queue.length) return "Deck finished"; if (!shown) { snap(); shown = true; return "Show answer"; } return this.rate(3); },
+    async rate(ease) {
+      if (!queue.length) return "Deck finished";
+      snap(); const card = queue.shift();
+      if (ease === 1) { queue.splice(Math.min(2, queue.length), 0, card); again++; }      // see it again in a moment
+      else if (ease === 2) queue.splice(Math.min(5, queue.length), 0, card);              // a bit later
+      else done++;                                                                          // Good / Easy: done for today
+      shown = false; return `Rated ${EASE[ease]}`;
+    },
+    async undo() { const h = history.pop(); if (!h) return "Nothing to undo"; ({ queue, shown, done, again } = h); queue = queue.slice(); return "Undone"; },
+    async view() { return { question: queue[0] ? queue[0].q : null, answer: queue[0] && shown ? queue[0].a : null, counts: `${queue.length} left · ${done} done · ${again} again`, finished: !queue.length }; },
+    reset,
+  };
+})();
+
+// Real Anki through the AnkiConnect add-on (API version 6) on this computer.
+const AnkiBackend = (() => {
+  const URL_ = "http://127.0.0.1:8765";
+  let key = null, answerShown = false, lastCardId = null;
+  async function ac(action, params = {}) {
+    // No custom headers: this stays a "simple" request, so the browser doesn't need a CORS preflight.
+    let r;
+    try { r = await fetch(URL_, { method: "POST", body: JSON.stringify({ action, version: 6, params, ...(key ? { key } : {}) }) }); }
+    catch { throw new Error("Can't reach Anki. Is Anki open, with AnkiConnect installed?"); }
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    return j.result;
+  }
+  async function current() {
+    const card = await ac("guiCurrentCard");
+    if (!card) throw new Error("No card on screen. Pick a deck and press Start review.");
+    if (card.cardId !== lastCardId) { lastCardId = card.cardId; answerShown = false; }
+    return card;
+  }
+  return {
+    name: "Anki",
+    ac,
+    setKey(k) { key = k || null; },
+    async connect() {
+      const p = await ac("requestPermission");                 // the only call allowed from any origin; Anki asks you once
+      if (p.permission !== "granted") throw new Error("Anki refused this page. Allow it in the Anki popup, then connect again.");
+      if (p.requireApiKey && !key) throw new Error("Your AnkiConnect needs an API key. Enter it above.");
+      await ac("version");
+      return ac("deckNames");
+    },
+    async startReview(deck) { await ac("guiDeckReview", { name: deck }); answerShown = false; lastCardId = null; return `Reviewing ${deck}`; },
+    async next() {
+      await current();
+      if (!answerShown) { await ac("guiShowAnswer"); answerShown = true; return "Show answer"; }
+      return this.rate(3);
+    },
+    async rate(ease) {
+      await current();
+      await ac("guiShowAnswer");                                // rating needs the answer side (no-op if it's already up)
+      const ok = await ac("guiAnswerCard", { ease });
+      if (!ok) throw new Error("Anki didn't accept the rating.");
+      answerShown = false; return `Rated ${EASE[ease]}`;
+    },
+    async undo() { const ok = await ac("guiUndo"); answerShown = false; lastCardId = null; return ok ? "Undone" : "Nothing to undo"; },
+    async view() {
+      const card = await ac("guiCurrentCard").catch(() => null);
+      if (!card) return { question: null, answer: null, counts: "", idle: true };
+      if (card.cardId !== lastCardId) { lastCardId = card.cardId; answerShown = false; }
+      return { question: toText(card.question), answer: answerShown ? toText(answerOnly(card)) : null, counts: card.deckName ? `Deck: ${card.deckName}` : "" };
+    },
+  };
+})();
+// Card HTML → plain text (DOMParser never runs scripts; we only read textContent).
+function toText(html) {
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  doc.querySelectorAll("style,script").forEach(n => n.remove());
+  return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+}
+// Anki's answer side usually repeats the question above <hr id=answer>; show just the part after it.
+function answerOnly(card) { const i = (card.answer || "").search(/<hr id=["']?answer/i); return i >= 0 ? card.answer.slice(i) : card.answer; }
+
+let backend = DemoDeck;
+
+/* ============ Rendering ============ */
+function setCard(v) {
+  const box = $("cardbox"); box.replaceChildren();
+  const el = (cls, t) => { const d = document.createElement("div"); d.className = cls; d.textContent = t; box.append(d); };
+  if (v.finished) { el("q", "Deck finished 🎉"); const b = document.createElement("button"); b.textContent = "Start over"; b.onclick = () => { DemoDeck.reset(); render(); }; box.append(b); }
+  else if (v.idle) el("muted", backend === AnkiBackend ? "Connect, pick a deck and press Start review. Anki shows the card; this page mirrors it." : "");
+  else { el("q", v.question || ""); if (v.answer != null) { el("divider", ""); el("a", v.answer); } }
+  $("counts").textContent = v.counts || "";
+}
+async function render() { try { setCard(await backend.view()); } catch (e) { setCard({ idle: true }); } }
+$("rateBtns").innerHTML = [1, 2, 3, 4].map(e => `<button class="r${e}" data-ease="${e}">${EASE[e]} <kbd style="background:transparent;color:#fff">${e}</kbd></button>`).join("");
+$("undoBtn").onclick = () => perform("undo", "button");
+$("rateBtns").onclick = e => { const b = e.target.closest("button"); if (b) perform("rate" + b.dataset.ease, "button"); };
+
+/* ============ Actions ============ */
+const ACTIONS = { none: "Nothing", next: "Next ▸", rate1: "Again", rate2: "Hard", rate3: "Good", rate4: "Easy", undo: "Undo" };
+let busy = false, lastActionAt = 0;
+async function perform(action, source) {
+  if (action === "none") return;
+  if (busy) { log(`${source}: ignored (still busy)`); return; }
+  busy = true;
+  try {
+    const msg = action === "next" ? await backend.next() : action === "undo" ? await backend.undo() : await backend.rate(+action.slice(4));
+    lastActionAt = performance.now();
+    flash(msg); log(`${source} → ${msg}`);
+  } catch (e) { flash("⚠ " + e.message); log(`${source} → error: ${e.message}`); }
+  finally { busy = false; render(); }
+}
+
+/* ============ Gestures → actions (configurable, remembered on this device) ============ */
+const GESTURES = [["palm", "✋ Show palm"], ["thumbUp", "👍 Thumbs up"], ["thumbDown", "👎 Thumbs down"],
+  ["raise", "🤨 Eyebrow raise"], ["dblink", "😉 Double blink"], ["jaw", "😮 Open mouth"]];
+const DEFAULT_MAP = { palm: "next", thumbUp: "rate3", thumbDown: "rate1", raise: "next", dblink: "none", jaw: "none" };
+const SHORT = { next: "next", rate1: "Again", rate2: "Hard", rate3: "Good", rate4: "Easy", undo: "undo" };
+function renderLegend() {
+  $("legend").replaceChildren(...GESTURES.filter(([g]) => map[g] !== "none").map(([g, label]) => {
+    const s = document.createElement("span"); s.append(label.split(" ")[0] + " "); const b = document.createElement("b"); b.textContent = SHORT[map[g]]; s.append(b); return s; }));
+}
+const map = { ...DEFAULT_MAP, ...store.get("map", {}) };
+$("map").innerHTML = GESTURES.map(([g, label]) => `<label for="m-${g}">${label}</label><select id="m-${g}" data-g="${g}">${Object.entries(ACTIONS).map(([a, t]) => `<option value="${a}">${t}</option>`).join("")}</select>`).join("");
+for (const [g] of GESTURES) { $("m-" + g).value = map[g]; $("m-" + g).onchange = e => { map[g] = e.target.value; store.set("map", map); renderLegend(); }; }
+renderLegend();
+$("chips").innerHTML = GESTURES.map(([g, label]) => `<span class="chip" id="c-${g}">${label}</span>`).join("");
+
+const COOLDOWN_MS = 350;   // a gesture right after an action is far more likely a leftover than intent
+function gesture(g) {
+  const chip = $("c-" + g); chip.classList.add("hit"); setTimeout(() => chip.classList.remove("hit"), 500);
+  if (!$("listen").checked) { log(`${g}: seen, but watching is paused`); return; }
+  if (performance.now() - lastActionAt < COOLDOWN_MS) { log(`${g}: ignored (cooldown)`); return; }
+  perform(map[g], GESTURES.find(x => x[0] === g)[1]);
+}
+
+/* ============ Mode switch ============ */
+function setMode(anki) {
+  backend = anki ? AnkiBackend : DemoDeck;
+  $("modeDemo").setAttribute("aria-pressed", String(!anki)); $("modeAnki").setAttribute("aria-pressed", String(anki));
+  $("ankiSetup").hidden = !anki; $("demoControls").hidden = false; $("rateBtns").hidden = false;
+  store.set("mode", anki ? "anki" : "demo"); render();
+}
+$("modeDemo").onclick = () => setMode(false);
+$("modeAnki").onclick = () => setMode(true);
+
+$("connectBtn").onclick = async () => {
+  $("connectBtn").disabled = true; $("ankiStatus").className = "status muted"; $("ankiStatus").textContent = "Connecting… (check Anki for a permission popup)";
+  AnkiBackend.setKey($("apiKey").value.trim());
+  try {
+    const decks = await AnkiBackend.connect();
+    $("deckSel").replaceChildren(...decks.map(d => Object.assign(document.createElement("option"), { value: d, textContent: d })));
+    const last = store.get("deck", null); if (last && decks.includes(last)) $("deckSel").value = last;
+    $("deckRow").hidden = false; $("ankiStatus").className = "status okc"; $("ankiStatus").textContent = `Connected · ${decks.length} decks`;
+    log("connected to Anki"); render();
+  } catch (e) {
+    $("ankiStatus").className = "status err"; $("ankiStatus").textContent = e.message;
+    if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) $("ankiStatus").textContent += " If your browser asked about access to devices on your local network, allow it.";
+  } finally { $("connectBtn").disabled = false; }
+};
+$("reviewBtn").onclick = async () => { store.set("deck", $("deckSel").value); try { flash(await AnkiBackend.startReview($("deckSel").value)); } catch (e) { flash("⚠ " + e.message); } render(); };
+
+/* ============ Camera: hands + face ============ */
+const POSE_TXT = { palm: "✋ palm", thumbUp: "👍 up", thumbDown: "👎 down" };
+let cam = null;
+$("camBtn").onclick = async () => {
+  if (cam) { cam.stop(); cam = null; $("camBox").hidden = true; $("camBtn").textContent = "Start camera"; $("inStatus").textContent = "Camera off."; return; }
+  $("camBtn").disabled = true; $("inStatus").textContent = "Starting camera and hand + face tracking…";
+  try {
+    const { GestureCam } = await import("./camera-demo/gesture-cam.js");
+    cam = await GestureCam.start($("video"), {
+      onGesture: gesture,
+      onHandPose: p => ($("handTxt").textContent = "hand: " + (p ? POSE_TXT[p] : "–")),
+      onFace: f => { $("faceTxt").textContent = f ? "face: ✓" : "face: looking…"; },
+    });
+    cam.use.hands = $("useHands").checked; cam.use.face = $("useFace").checked;
+    $("camBox").hidden = false; $("camBtn").textContent = "Stop camera";
+    $("inStatus").textContent = "Camera on. Try ✋ palm or 👍 to test.";
+  } catch (e) {
+    $("inStatus").textContent = location.protocol === "file:" ? "The camera needs this page served over http(s), not opened as a file. See the README." : `Camera unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`;
+  } finally { $("camBtn").disabled = false; }
+};
+$("useHands").onchange = e => cam && (cam.use.hands = e.target.checked);
+$("useFace").onchange = e => cam && (cam.use.face = e.target.checked);
+$("camCal").onclick = async () => { $("camCal").disabled = true; await cam.calibrateFace((p, t) => ($("inStatus").textContent = t)); $("camCal").disabled = false; };
+
+addEventListener("keydown", e => {
+  if (e.target.closest("input, select")) return;
+  if (e.code === "Space") { e.preventDefault(); perform("next", "Space"); }
+  else if (/^[1-4]$/.test(e.key)) perform("rate" + e.key, `key ${e.key}`);
+  else if (e.key === "u" || e.key === "U") perform("undo", "U");
+  else if (e.key === "l" || e.key === "L") { $("listen").checked = !$("listen").checked; flash($("listen").checked ? "Watching" : "Watching paused"); }
+});
+
+setMode(store.get("mode", "demo") === "anki");
+if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, get cam() { return cam; }, get backend() { return backend; } };
+</script>
+</body>
+</html>
