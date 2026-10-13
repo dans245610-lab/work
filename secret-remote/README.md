@@ -64,7 +64,7 @@ Any https host works too. The MediaPipe runtime (`vendor/mediapipe/`, Apache-2.0
 
 Review Anki flashcards with your hands busy (treadmill desk, kitchen, workshop). Open `anki-clicker.html` and press **Start camera**, **Start mic**, or both.
 
-There are 35 gestures: 28 from the camera and 7 from the mic. Every one can be mapped to Next, Again, Hard, Good, Easy, Undo or Nothing, and there are 4 presets to start from:
+There are 37 gestures: 30 from the camera and 7 from the mic. Every one can be mapped to Next, Again, Hard, Good, Easy, Undo or Nothing, and there are 4 presets to start from:
 
 | Preset | Mapping |
 |---|---|
@@ -85,7 +85,7 @@ There are 35 gestures: 28 from the camera and 7 from the mic. Every one can be m
 | **Hand motion** | 👈 swipe left · 👉 swipe right | An open hand moves at least 22% of the frame width within 450 ms, mostly sideways. A hand drifting into view doesn't count. |
 | **Face** (`face-remote.js`, MediaPipe blendshapes) | 🤨 eyebrows up · 😠 frown · 😁 big smile (both sides, held 0.4 s) · 😗 pucker · 😮 mouth open · 😏 mouth to the left or right · double blink · eyes shut 1 s · 😉 wink left or right eye | Rising edge plus a hold time on each blendshape score. Winks need one eye shut *and* clearly more shut than the other, held 150 ms, so ordinary blinks never count. |
 | **Sounds** (`audio-remote.js`, mic) | 👆 1 / 2 / 3 desk taps · 🖊 pen click or finger snap · 🎵 whistle · ⤴ whistle sliding up · ⤵ whistle sliding down | **Taps:** sharp onset over the adaptive noise floor, then must fade below 40% within 90–160 ms. Speech, music and slammed doors don't fade that fast, so they're ignored. Taps are counted in a 0.65 s window. **Click vs tap:** spectral centroid. **Whistle:** at least 45% of the 0.5–4 kHz power in one narrow peak (speech and music spread it across harmonics), held at steady loudness for ≥ 0.25 s. Ringing knocks are tonal too but fade fast. **Up/down:** pitch at the end vs the start, ±15%. |
-| **Head** (face transformation matrix) | nod (yes) · shake (no) · tilt left · tilt right | **Nod:** 2 swings of 7–35° in pitch within 0.9 s. **Shake:** 3 swings of 9° or more in yaw within 1.3 s. Both re-arm only after the head has been still for 0.4 s, so "yes-yes-yes" counts once. **Tilt:** 18° of roll away from your usual resting tilt, held 0.35 s. |
+| **Head** (face transformation matrix) | nod (yes) · shake (no) · tilt left · tilt right · ↩️ nod left · ↪️ nod right | **Nod:** 2 swings of 7–35° in pitch within 0.9 s. **Shake:** 3 swings of 9° or more in yaw within 1.3 s. Both re-arm only after the head has been still for 0.4 s, so "yes-yes-yes" counts once. **Tilt:** 18° of roll away from your usual resting tilt, held 0.35 s. **Nod left/right:** a quick turn of 14° or more to one side and straight back, followed by stillness for 0.25 s. Waiting for stillness separates it from a shake, which keeps going. It also has to come back within 0.6 s, which separates it from glancing away. |
 
 ### Calibration
 
@@ -98,14 +98,16 @@ There are 35 gestures: 28 from the camera and 7 from the mic. Every one can be m
 | Winks, each side | One-eye winks | That eye's closed line, and how much more closed than the other eye it must be. Fails if both eyes close together. |
 | Nod / shake | Your natural nod or shake | Swing size at 55% of yours, clamped to a sane range |
 | Tilt | Tilt left, then right | Trigger at 60% of your smaller tilt |
+| Nod left / right | A quick turn left and back, then right | Turn size at 55% of your smaller turn, plus **which way is your left**: some cameras and virtual cams are mirrored, so the direction is learned from you |
 | Hands | Open hand, fist, 4 fingers with thumb tucked | Per-finger "straight" and "folded" lines, and the thumb-out line. Then each pose you use is checked; if one fails, it tells you what it looked like instead. |
 | Swipe | A few sideways swipes | Distance needed: 60% of your swipe |
-| Sounds | Quiet room (2.5 s), 5 desk taps, pen clicks (if used), a whistle (if used) | Tap trigger at 45% of your typical tap, at least 4× the background. The click/tap pitch line moves only if your taps or clicks cross it (fingernail taps, dull pens). Whistle purity line at 65% of your whistle's. |
+| Sounds | Quiet room (2.5 s), 5 desk taps, 3 double taps (if used), pen clicks (if used), a steady whistle, then whistles sliding up and down (if used) | Tap trigger at 45% of your typical tap, at least 4× the background. The click/tap pitch line moves only if your taps or clicks cross it (fingernail taps, dull pens). **Double-tap speed** sets how long a single tap waits (1.6× your slowest double tap, 0.35–0.9 s), so fast tappers get snappier single taps. Whistle purity line at 65% of your whistle's. **Slide line** sits between your steady note's wobble and your smallest slide. |
 
 - **Hand calibration only ever loosens the defaults,** for fingers that don't fully straighten or fold.
   - Tested on a simulated stiff hand: "open hand" and "1 finger" went from unrecognised to recognised.
   - Calibrating with someone else's hand (the worst case) changed recognition on the 9,000-sample dataset by at most 3 points.
 - **Saving:** results are saved on this device and applied whenever the camera starts. A partial run keeps earlier results for the other gestures. **reset** goes back to the defaults.
+- **Steps run only for inputs that are on.** If gestures you use need the mic or camera and it's off, the panel says so.
 - **During calibration** gestures don't act on cards. `S` skips a step and `Esc` stops.
 - **On a slow computer** a step keeps recording, up to 2.5× longer, until it has enough frames to judge.
 
@@ -132,8 +134,10 @@ There are 35 gestures: 28 from the camera and 7 from the mic. Every one can be m
   - Squashing one eye in real photos showed that MediaPipe's `eyeBlinkRight` is the person's own right eye.
   - Shifting the mouth confirmed `mouthRight` the same way.
   - Rotating photos 20° moved the measured roll by 18–22°, with the sign confirmed.
-- **Face and head logic:** 27 scripted scenarios, all passing. These include the things that must **not** fire:
+- **Face and head logic:** 34 scripted scenarios, all passing. These include the things that must **not** fire:
   - Glancing down at a phone.
+  - Glancing left and holding there.
+  - A shake (which must not also count as a nod left or right).
   - Looking sideways and back.
   - Treadmill head bob (3° at 1.8 Hz).
   - Slowly looking around.
@@ -153,7 +157,7 @@ There are 35 gestures: 28 from the camera and 7 from the mic. Every one can be m
 
 - **Tongue out, cheek puff:** MediaPipe's scores for these barely move on real faces, so they're unreliable.
 - **Eye gaze (look left, right, up):** too noisy, and you look around naturally while reading cards.
-- **Head turn (held yaw):** you turn your head constantly, so it would misfire. Shake covers "no".
+- **Head turn held to one side:** you turn your head constantly, so it would misfire. A quick turn and back (nod left/right) is used instead.
 - **Pinch:** looks like the OK sign and a resting hand.
 - **Wave:** overlaps with swipes.
 - **Swipe up or down:** a hand coming up into the frame looks like a swipe up.
@@ -179,7 +183,7 @@ There are 35 gestures: 28 from the camera and 7 from the mic. Every one can be m
 
 ## Updating the code
 
-Module imports carry a version query (`?v=8`), so browsers can't combine a new page with old cached modules. When you change any `.js` module, bump the number everywhere: `grep -rn "?v=" secret-remote`. If someone still sees "does not provide an export named …", a hard refresh (Ctrl/Cmd+Shift+R) fixes it.
+Module imports carry a version query (`?v=9`), so browsers can't combine a new page with old cached modules. When you change any `.js` module, bump the number everywhere: `grep -rn "?v=" secret-remote`. If someone still sees "does not provide an export named …", a hard refresh (Ctrl/Cmd+Shift+R) fixes it.
 
 ## Honest limits
 

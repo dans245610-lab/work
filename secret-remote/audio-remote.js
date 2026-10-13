@@ -116,18 +116,18 @@ async function start(h = {}) {
 }
 
 /* ---------- calibration steps (same interface as camera-demo/calibration.js; source: "audio") ---------- */
-const r3 = x => Math.round(x * 1000) / 1000, pct = x => `${Math.round(x * 100)}%`;
+const r3 = x => Math.round(x * 1000) / 1000, pct = x => `${Math.round(x * 100)}%`, clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const median = xs => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : 0; };
 const fail = msg => ({ ok: false, msg });
 const A = frames => frames.filter(f => f.audio).map(f => ({ t: f.t, ...f.audio }));
-// Peaks of loud bursts: rms above gate; each burst ends after 80 ms of quiet. Returns [{ peak, hz }].
+// Peaks of loud bursts: rms above gate; each burst ends after 80 ms of quiet. Returns [{ t, peak, hz }].
 function bursts(fs, gate) {
   const out = []; let cur = null;
   for (const f of fs) {
-    if (f.rms > gate) { if (!cur) cur = { peak: 0, hz: [], quietSince: 0 }; if (f.rms > cur.peak) cur.peak = f.rms; cur.hz.push(f.hz); cur.quietSince = 0; }
-    else if (cur) { if (!cur.quietSince) cur.quietSince = f.t; if (f.t - cur.quietSince > 80) { out.push({ peak: cur.peak, hz: median(cur.hz.slice(0, 3)) }); cur = null; } }
+    if (f.rms > gate) { if (!cur) cur = { t: f.t, peak: 0, hz: [], quietSince: 0 }; if (f.rms > cur.peak) cur.peak = f.rms; cur.hz.push(f.hz); cur.quietSince = 0; }
+    else if (cur) { if (!cur.quietSince) cur.quietSince = f.t; if (f.t - cur.quietSince > 80) { out.push({ t: cur.t, peak: cur.peak, hz: median(cur.hz.slice(0, 3)) }); cur = null; } }
   }
-  if (cur) out.push({ peak: cur.peak, hz: median(cur.hz.slice(0, 3)) });
+  if (cur) out.push({ t: cur.t, peak: cur.peak, hz: median(cur.hz.slice(0, 3)) });
   return out;
 }
 const meterRms = f => (f.audio ? Math.min(1, Math.sqrt(f.audio.rms / 0.3)) : 0);
@@ -172,8 +172,52 @@ const clicks = {
     return { ok: true, msg: `Clicks are ${clickHz} Hz, taps up to ${Math.round(highTap)} Hz. Moved the line between them to ${clickMinHz} Hz.`, audio: { clickMinHz } };
   },
 };
+// Double-tap speed: how long a single tap waits for a possible second tap (shorter = snappier for fast tappers).
+const rhythm = {
+  id: "rhythm", source: "audio", icon: "✌", title: "Double taps", say: "Double-tap the desk 3 times (like a double-click), with a pause between each pair.", ms: 7000, meter: meterRms,
+  analyse(frames, ctx) {
+    const fs = A(frames), floor = ctx.floor ?? median(fs.map(f => f.rms));
+    const b = bursts(fs, Math.max(CFG.threshold || 0, floor * 4, CFG.absMin));
+    const gaps = []; for (let i = 1; i < b.length; i++) { const g = b[i].t - b[i - 1].t; if (g < 900) { gaps.push(g); i++; } }
+    if (gaps.length < 2) return fail(`Heard ${gaps.length} double tap${gaps.length === 1 ? "" : "s"}; need 2 or more. Make the two taps of each pair quick, with a clear pause between pairs.`);
+    const slow = Math.max(...gaps), fast = Math.min(...gaps);
+    const patternMs = Math.round(clamp(slow * 1.6 + 100, 350, 900)), debounceMs = Math.round(clamp(fast * 0.6, 100, 180));
+    return { ok: true, msg: `Your double taps are ${Math.round(fast)}–${Math.round(slow)} ms apart. A single tap now waits ${patternMs} ms (default ${DEFAULTS.patternMs}).`, audio: { patternMs, debounceMs } };
+  },
+};
+
+// Whistle segments: runs of whistle-like frames (≤ 90 ms gaps) lasting ≥ 200 ms, with their pitch slide (end ÷ start).
+function whistles(fs) {
+  const out = []; let cur = null;
+  for (const f of fs) {
+    if (f.voiced) { if (!cur || f.t - cur.last > 90) { if (cur) out.push(cur); cur = { start: f.t, last: f.t, p: [] }; } cur.last = f.t; cur.p.push(f.pitch); }
+  }
+  if (cur) out.push(cur);
+  return out.filter(w => w.last - w.start >= 200 && w.p.length >= 4).map(w => { const q = Math.max(1, Math.floor(w.p.length / 4)); return { ms: w.last - w.start, ratio: median(w.p.slice(-q)) / median(w.p.slice(0, q)) }; });
+}
+function slide(dir) {
+  const up = dir === "up";
+  return {
+    id: "whistle" + (up ? "Up" : "Down"), source: "audio", icon: up ? "⤴️" : "⤵️", title: `Whistle sliding ${dir}`, say: `Whistle a note that slides ${dir}, twice.`, ms: 6000,
+    meter: f => (f.audio && f.audio.voiced ? Math.min(1, f.audio.pitch / 3000) : 0),
+    analyse(frames, ctx) {
+      const ws = whistles(A(frames));
+      if (!ws.length) return fail("Didn't hear a whistle. Whistle a little louder, or skip.");
+      const right = ws.filter(w => (up ? w.ratio > 1 : w.ratio < 1));
+      if (!right.length) return fail(`Those whistles went ${up ? "down" : "up"}, not ${dir}.`);
+      const amount = Math.min(...right.map(w => Math.abs(w.ratio - 1)));
+      ctx["glide" + dir] = amount;
+      const steady = ctx.steadyDrift ?? 0.03, other = ctx["glide" + (up ? "down" : "up")];
+      if (amount < steady * 1.5 + 0.03) return fail(`Your slide (${pct(amount)}) is too close to your steady note's wobble (${pct(steady)}). Slide further.`);
+      const smallest = other === undefined ? amount : Math.min(amount, other);
+      const glide = r3(clamp((steady + smallest) / 2, 0.05, 0.4));
+      return { ok: true, msg: `Your ${dir} slide changes pitch by ${pct(amount)}. Slides now count above ${pct(glide)}; steady notes below.`, audio: { glide } };
+    },
+  };
+}
+
 const whistle = {
-  id: "whistle", source: "audio", icon: "🎵", title: "Whistle", say: "Whistle a short note, stop, then whistle a sliding note (up or down).", ms: 6000,
+  id: "whistle", source: "audio", icon: "🎵", title: "Whistle", say: "Whistle a steady note for about a second, twice.", ms: 6000,
   meter: f => (f.audio ? Math.min(1, f.audio.tonal) : 0),
   analyse(frames, ctx) {
     const fs = A(frames), floor = ctx.floor ?? 0.003;
@@ -183,7 +227,8 @@ const whistle = {
     const level = median(top);
     if (level < 0.3) return fail(`That didn't sound like a pure whistle (tonality ${pct(level)}). Try a clearer note.`);
     const tonal = r3(Math.max(0.3, Math.min(0.6, level * 0.65)));
-    return { ok: true, msg: `Your whistle is ${pct(level)} pure tone. Whistles count above ${pct(tonal)}.`, audio: { tonal } };
+    const ws = whistles(fs); ctx.steadyDrift = ws.length ? Math.max(...ws.map(w => Math.abs(w.ratio - 1))) : undefined;
+    return { ok: true, msg: `Your whistle is ${pct(level)} pure tone. Whistles count above ${pct(tonal)}.${ctx.steadyDrift !== undefined ? ` A steady note wobbles ${pct(ctx.steadyDrift)}.` : ""}`, audio: { tonal } };
   },
 };
 
@@ -193,8 +238,11 @@ function planSteps(ids) {
   if (!anyTap && !anyWhistle) return steps;
   steps.push(quiet);
   if (anyTap) steps.push(taps);
+  if (g.has("tap2") || g.has("tap3")) steps.push(rhythm);
   if (g.has("click")) steps.push(clicks);
   if (anyWhistle) steps.push(whistle);
+  if (g.has("whistleUp")) steps.push(slide("up"));
+  if (g.has("whistleDown")) steps.push(slide("down"));
   return steps;
 }
 
@@ -202,4 +250,4 @@ const DEFAULTS = { ...CFG };
 // Reset to defaults, then apply a saved calibration's audio part.
 function apply(cal) { Object.assign(CFG, DEFAULTS); if (cal && cal.audio) Object.assign(CFG, cal.audio); }
 
-export const AudioRemote = { start, CFG, apply, planSteps, analyseSpectrum, _test: { bursts, quiet, taps, clicks, whistle } };
+export const AudioRemote = { start, CFG, apply, planSteps, analyseSpectrum, _test: { bursts, whistles, quiet, taps, rhythm, clicks, whistle, slide } };

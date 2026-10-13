@@ -317,7 +317,8 @@ const GROUPS = [
   ["Face", [["raise", "🤨", "Eyebrows up"], ["frown", "😠", "Frown (brows down)"], ["smile", "😁", "Big smile (hold)"], ["pucker", "😗", "Pucker / kiss"],
     ["jaw", "😮", "Mouth wide open"], ["mouthLeft", "😏", "Mouth to your left"], ["mouthRight", "😏", "Mouth to your right"],
     ["dblink", "😑", "Double blink"], ["longBlink", "😌", "Eyes shut 1 second"], ["winkLeft", "😉", "Wink left eye"], ["winkRight", "😉", "Wink right eye"]]],
-  ["Head", [["nod", "↕️", "Nod (yes)"], ["shake", "↔️", "Shake (no)"], ["tiltLeft", "↖️", "Tilt head to your left"], ["tiltRight", "↗️", "Tilt head to your right"]]],
+  ["Head", [["nod", "↕️", "Nod (yes)"], ["shake", "↔️", "Shake (no)"], ["tiltLeft", "↖️", "Tilt head to your left"], ["tiltRight", "↗️", "Tilt head to your right"],
+    ["nodLeft", "↩️", "Nod left (quick turn left and back)"], ["nodRight", "↪️", "Nod right (quick turn right and back)"]]],
   ["Sounds", [["tap1", "👆", "1 desk tap"], ["tap2", "✌", "2 quick taps"], ["tap3", "🤟", "3 quick taps"], ["click", "🖊", "Pen click / finger snap"],
     ["whistle", "🎵", "Whistle a note"], ["whistleUp", "⤴️", "Whistle sliding up"], ["whistleDown", "⤵️", "Whistle sliding down"]]],
 ];
@@ -411,7 +412,7 @@ $("camBtn").onclick = async () => {
   if (cam) { cam.stop(); cam = null; $("camBox").hidden = true; $("camBtn").textContent = "Start camera"; $("inStatus").textContent = "Camera off."; inputsChanged(); return; }
   $("camBtn").disabled = true; $("inStatus").textContent = "Starting camera and hand + face tracking…";
   try {
-    const { GestureCam } = await import("./camera-demo/gesture-cam.js?v=8");
+    const { GestureCam } = await import("./camera-demo/gesture-cam.js?v=9");
     cam = await GestureCam.start($("video"), {
       onGesture: gesture,
       onHandPose: p => ($("handTxt").textContent = "hand: " + (p ? G[p].icon + " " + p : "–")),
@@ -443,7 +444,7 @@ $("micBtn").onclick = async () => {
   if (mic) { mic.stop(); mic = null; $("micBox").hidden = true; $("micBtn").textContent = "Start mic"; $("inStatus").textContent = "Mic off."; inputsChanged(); return; }
   $("micBtn").disabled = true;
   try {
-    ({ AudioRemote: Audio } = await import("./audio-remote.js?v=8"));
+    ({ AudioRemote: Audio } = await import("./audio-remote.js?v=9"));
     Audio.apply(store.get("calibration", null));
     mic = await Audio.start({
       onGesture: gesture, onLevel: drawMeter,
@@ -455,10 +456,10 @@ $("micBtn").onclick = async () => {
   } catch (e) { $("inStatus").textContent = STALE.test(e.message) ? STALE_MSG : `Mic unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`; }
   finally { $("micBtn").disabled = false; }
 };
-function inputsChanged() { $("calBox").hidden = !(cam || mic); syncUI(); }
+function inputsChanged() { $("calBox").hidden = !(cam || mic); syncUI(); if (Cal) updateCalInfo(); }
 
 /* ============ Calibration (every gesture; see camera-demo/calibration.js) ============ */
-const loadCal = async () => (Cal = Cal || await import("./camera-demo/calibration.js?v=8"));
+const loadCal = async () => (Cal = Cal || await import("./camera-demo/calibration.js?v=9"));
 function usedGestures() { return GESTURES.filter(([id]) => map[id] !== "none").map(([id]) => id); }
 // Steps for the inputs that are switched on (camera steps need the camera, sound steps the mic).
 function plan(ids) {
@@ -469,9 +470,12 @@ function updateCalInfo() {
   const saved = store.get("calibration", null);
   const steps = Cal ? plan(usedGestures()) : null;
   $("calMine").textContent = steps && steps.length ? `Calibrate my gestures (~${Math.max(0.5, Math.round(Cal.estimateSeconds(steps) / 60 * 2) / 2)} min)` : "Calibrate my gestures";
-  if (!saved) { $("calInfo").textContent = "Not calibrated yet: using defaults that suit most people."; return; }
+  // Steps only run for inputs that are on, so say when some of your gestures can't be calibrated right now.
+  const used = usedGestures(), needMic = !mic && used.some(id => SOUND_IDS.has(id)), needCam = !cam && used.some(id => !SOUND_IDS.has(id));
+  const missing = needMic || needCam ? ` Start the ${needMic && needCam ? "camera and mic" : needMic ? "mic" : "camera"} to calibrate your ${needMic && needCam ? "other" : needMic ? "sound" : "camera"} gestures too.` : "";
+  if (!saved) { $("calInfo").textContent = "Not calibrated yet: using defaults that suit most people." + missing; return; }
   const okN = saved.report.filter(r => r.ok).length, badN = saved.report.filter(r => r.ok === false).length;
-  $("calInfo").textContent = `Calibrated ${new Date(saved.at).toLocaleDateString()} · ${okN} ✓${badN ? ` · ${badN} ⚠ (defaults kept)` : ""}`;
+  $("calInfo").textContent = `Calibrated ${new Date(saved.at).toLocaleDateString()} · ${okN} ✓${badN ? ` · ${badN} ⚠ (defaults kept)` : ""}.` + missing;
 }
 async function startCalibration(all) {
   if (calibrating) return;
@@ -549,7 +553,7 @@ addEventListener("keydown", e => {
 });
 
 setMode(store.get("mode", "demo") === "anki");
-if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, startCalibration, loadCal, loadAudio: async () => ({ AudioRemote: Audio } = await import("./audio-remote.js?v=8")), get Cal() { return Cal; }, get cam() { return cam; }, get backend() { return backend; } };
+if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, startCalibration, loadCal, loadAudio: async () => ({ AudioRemote: Audio } = await import("./audio-remote.js?v=9")), get Cal() { return Cal; }, get cam() { return cam; }, get backend() { return backend; } };
 </script>
 </body>
 </html>

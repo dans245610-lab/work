@@ -10,7 +10,7 @@
 // Gestures (all fire once per occurrence; holding doesn't repeat):
 //   expressions  raise, frown, smile, pucker, jaw (mouth open), mouthLeft, mouthRight
 //   eyes         dblink (two blinks < 0.7 s), longBlink (eyes shut ≥ 0.7 s), winkLeft, winkRight
-//   head         nod, shake, tiltLeft, tiltRight
+//   head         nod, shake, tiltLeft, tiltRight, nodLeft, nodRight (a quick turn to one side and back)
 // Left/right are always the *user's* own left/right.
 import { FilesetResolver, FaceLandmarker } from "./vendor/mediapipe/vision_bundle.js";
 
@@ -22,6 +22,8 @@ const CFG = {
   frownThreshold: 0.45, smileThreshold: 0.6, smileHoldMs: 400, puckerThreshold: 0.6, mouthLeftThreshold: 0.5, mouthRightThreshold: 0.5, holdMs: 250,
   tiltDeg: 18, tiltHoldMs: 350,
   nodDeg: 7, nodMaxDeg: 35, nodWindowMs: 900, shakeDeg: 9, shakeWindowMs: 1300,
+  turnDeg: 14, turnMaxDwellMs: 600, turnSettleMs: 250,
+  yawSign: 1,   // yaw × yawSign > 0 = turned to the user's left (checked on mirrored photos; calibration re-learns it per user)
   noFaceMs: 1000, everyOtherFrame: false,
 };
 // MediaPipe's blendshape names are from the subject's point of view (eyeBlinkLeft = the user's own left eye),
@@ -90,7 +92,26 @@ function feedHead(head, now) {
   let fired = null;
   if (sy.length >= 3 && range(Pl) < 0.6 * range(Y)) fired = "shake";
   else if (sp.length >= 2 && range(Yr) < 0.6 * range(P)) fired = "nod";
+  else fired = sideNod(now);
   if (fired) { emit(fired); state.headArmed = false; state.headFiredAt = now; }
+}
+
+// Nod left / right: a quick turn to one side and straight back, then still. Waiting for the head to settle is what
+// separates it from the start of a shake (which keeps going) and from glancing away (which dwells over there).
+function sideNod(now) {
+  const h = headHist; if (h.length < 6) return null;
+  const tail = h.filter(s => now - s.t <= CFG.turnSettleMs);
+  if (tail.length < 3 || range(tail.map(s => s.yaw)) > 3) return null;            // not settled yet
+  const y0 = h[0].yaw, yEnd = tail[tail.length - 1].yaw;
+  let peak = h[0]; for (const s of h) if (Math.abs(s.yaw - y0) > Math.abs(peak.yaw - y0)) peak = s;
+  const dev = peak.yaw - y0;
+  if (Math.abs(dev) < CFG.turnDeg || Math.abs(dev) > 60) return null;
+  if (Math.abs(yEnd - y0) > 0.4 * Math.abs(dev)) return null;                        // didn't come back
+  if (swings(h.map(s => s.yaw), CFG.turnDeg * 0.5).filter(x => Math.abs(x) >= CFG.turnDeg * 0.5).length !== 2) return null;   // out + back only
+  const dwell = h.filter(s => Math.abs(s.yaw - y0) > Math.abs(dev) / 2);
+  if (dwell.length && dwell[dwell.length - 1].t - dwell[0].t > CFG.turnMaxDwellMs) return null;   // looked away and stayed
+  if (range(h.map(s => s.pitch)) > 0.6 * Math.abs(dev)) return null;
+  return dev * CFG.yawSign > 0 ? "nodLeft" : "nodRight";
 }
 
 function feed(s, now, head) {

@@ -8,8 +8,8 @@
 //
 // A frame is what GestureCam.onRaw gives: { t, aspect, face: { brow, blinkL, …, yaw, pitch, roll } | null, hands: [{ lm, pose, pos }] }.
 // Each step's analyse() is a pure function of the recorded frames, so it can be tested without a camera.
-import { FaceRemote } from "./face-remote.js?v=8";
-import { POSE_CFG, SWIPE_CFG, classifyHand, handFeatures } from "./hand-poses.js?v=8";
+import { FaceRemote } from "./face-remote.js?v=9";
+import { POSE_CFG, SWIPE_CFG, classifyHand, handFeatures } from "./hand-poses.js?v=9";
 
 const DEFAULTS = { face: { ...FaceRemote.CFG }, hand: JSON.parse(JSON.stringify(POSE_CFG)), swipe: { ...SWIPE_CFG } };
 export function applyCalibration(cal) {
@@ -145,6 +145,25 @@ const tilt = {
   },
 };
 
+// Nod left / right: learns which way your "left" turn reads (camera and model can differ) and how far you turn.
+const sideNod = {
+  id: "sideNod", icon: "↩️", title: "Nod left, then right", say: "Quick turn of the head to your LEFT and straight back. Pause. Then the same to your RIGHT.", ms: 6000,
+  meter: f => (f.face ? Math.min(1, Math.abs(f.face.yaw ?? 0) / 30) : 0),
+  analyse(frames) {
+    const ff = needFace(frames); if (!ff) return fail(NO_FACE);
+    const ys = ff.map(f => f.face.yaw ?? 0), base = median(ys.slice(0, 6));
+    const runs = []; let cur = null;   // excursions more than 5° from the start position
+    ys.forEach(y => { const d = y - base; if (Math.abs(d) > 5) { if (!cur || Math.sign(d) !== Math.sign(cur)) { if (cur) runs.push(cur); cur = d; } else if (Math.abs(d) > Math.abs(cur)) cur = d; } else if (cur) { runs.push(cur); cur = null; } });
+    if (cur) runs.push(cur);
+    const first = runs[0], other = runs.find(r => Math.sign(r) !== Math.sign(first ?? 0));
+    if (first === undefined) return fail("Didn't see your head turn. Turn a bit further, quickly, and come back.");
+    if (other === undefined) return fail("Only saw turns to one side. Turn left first, then right.");
+    if (Math.min(Math.abs(first), Math.abs(other)) < 8) return fail(`Turns were ${Math.round(Math.abs(first))}° and ${Math.round(Math.abs(other))}°. Each needs at least 8°.`);
+    const deg = Math.round(clamp(0.55 * Math.min(Math.abs(first), Math.abs(other)), 6, 25));
+    return { ok: true, msg: `You turn ${Math.round(Math.abs(first))}° left / ${Math.round(Math.abs(other))}° right. Trigger at ${deg}°.`, face: { turnDeg: deg, yawSign: Math.sign(first) } };
+  },
+};
+
 /* hands */
 const feats = hf => hf.map(f => handFeatures(f.hands[0].lm, f.aspect)).filter(Boolean);
 const medRatios = fs => [0, 1, 2, 3].map(i => median(fs.map(f => f.ratios[i])));
@@ -256,7 +275,7 @@ export const STEP_SECONDS = 1.5;   // "get ready" time before each step, on top 
 
 export function planSteps(gestures) {
   const g = new Set(gestures), steps = [];
-  const faceUsed = [...g].some(x => x in EXPRESSIONS || ["dblink", "longBlink", "winkLeft", "winkRight", "nod", "shake", "tiltLeft", "tiltRight"].includes(x));
+  const faceUsed = [...g].some(x => x in EXPRESSIONS || ["dblink", "longBlink", "winkLeft", "winkRight", "nod", "shake", "tiltLeft", "tiltRight", "nodLeft", "nodRight"].includes(x));
   if (faceUsed) steps.push(neutral);
   for (const [id, [icon, title, say, key, cfgKey]] of Object.entries(EXPRESSIONS)) if (g.has(id)) steps.push(expression(id, icon, title, say, key, cfgKey));
   if (g.has("dblink") || g.has("longBlink")) steps.push(blink);
@@ -265,6 +284,7 @@ export function planSteps(gestures) {
   if (g.has("nod")) steps.push(headSwing("nod", "↕️", "Nod", "Nod yes, two or three times, like you normally would.", "pitch", 2, "nodDeg", 4, 15));
   if (g.has("shake")) steps.push(headSwing("shake", "↔️", "Shake", "Shake your head no, two or three times.", "yaw", 3, "shakeDeg", 5, 18));
   if (g.has("tiltLeft") || g.has("tiltRight")) steps.push(tilt);
+  if (g.has("nodLeft") || g.has("nodRight")) steps.push(sideNod);
   const poses = [...g].filter(x => x in POSE_INFO || ["palm", "four", "fist", "swipeLeft", "swipeRight"].includes(x));
   if (poses.length) { steps.push(handOpen, handFist); if (g.has("palm") || g.has("four")) steps.push(handFour); }
   for (const p of Object.keys(POSE_INFO)) if (g.has(p)) steps.push(poseCheck(p));
@@ -308,4 +328,4 @@ export async function runCalibration(steps, sources, ui, extraTargets = {}) {
   return cal;
 }
 
-export const _test = { peaks, swings, neutral, expression, blink, wink, headSwing, tilt, handOpen, handFist, handFour, poseCheck, swipe };
+export const _test = { peaks, swings, neutral, expression, blink, wink, headSwing, tilt, sideNod, handOpen, handFist, handFour, poseCheck, swipe };

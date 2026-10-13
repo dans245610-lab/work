@@ -7,8 +7,8 @@
 //   cam.onRaw = frame => {}                         // every processed frame: { t, aspect, face: values|null, hands: [{ lm, pose, pos }] }
 //   cam.stop()
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from "./vendor/mediapipe/vision_bundle.js";
-import { FaceRemote } from "./face-remote.js?v=8";
-import { classifyHand, palmCenter, makePoseTrigger, makeSwipeDetector, POSE_CFG, SWIPE_CFG } from "./hand-poses.js?v=8";
+import { FaceRemote } from "./face-remote.js?v=9";
+import { classifyHand, palmCenter, makePoseTrigger, makeSwipeDetector, POSE_CFG, SWIPE_CFG } from "./hand-poses.js?v=9";
 
 async function create(Task, fileset, model, extra) {
   const opts = { baseOptions: { modelAssetPath: new URL(`./models/${model}`, import.meta.url).href, delegate: "GPU" }, ...extra };
