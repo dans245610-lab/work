@@ -473,6 +473,26 @@ const SCENES = [
       [1, 2, 3, 4, 5].forEach((i, k) => this.box(this.form, i, t, 17.4 + k * .3));
     }
   },
+  {
+    /* Deadline card for the 2nd cut: she says Oct 19 (1:41.6–1:44.6) before Oct 15 (1:46.0–1:48.2),
+       so 19 appears first. No CTA line. */
+    id: '11b_deadline_v2', start: 101.6, end: 111.5,
+    build(st) {
+      this.b = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">Mark your calendar</div>
+        <div class="row" style="gap:36px;justify-content:center">
+          <div class="cal" id="c19" style="width:330px"><div class="m" style="background:var(--ink-2)">OCT</div><div class="d">19</div><div class="l">Testify · 10 AM</div></div>
+          <div class="cal" id="c15" style="width:330px"><div class="m" style="background:var(--volt);color:var(--ink)">OCT</div><div class="d">15</div><div class="l">Register by</div></div>
+        </div>
+      </div>`));
+      ['c19', 'c15'].forEach(k => this[k] = this.b.querySelector('#' + k));
+    },
+    update(t, D) {
+      pop(this.b, t, 0, D - .3);
+      pop(this.c19, t, 2.0, Infinity, { dy: 0, scale: .6 });   // "…the morning of October 19th"
+      pop(this.c15, t, 5.6, Infinity, { dy: 0, scale: .6 });   // "the deadline to register is October 15th"
+    }
+  },
 ];
 
 /* ---------- driver API used by render.mjs ---------- */
