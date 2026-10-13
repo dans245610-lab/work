@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Everything is served from this site; the camera never leaves the device. This policy blocks any other connection. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Little Hands: baby sign practice</title>
+<meta name="description" content="Practise 20 everyday baby signs (ASL) at home with live, private, on-device camera feedback.">
+<meta name="theme-color" content="#fbf6ef">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<a class="sr-only" href="#groups">Skip to signs</a>
+<div class="topbar">
+  <a class="brand" href="./"><span aria-hidden="true">👶</span> Little Hands</a>
+  <nav aria-label="Main">
+    <a href="about.html">About &amp; resources</a>
+    <a href="about.html#privacy">Privacy</a>
+    <button id="settingsBtn" type="button">Settings</button>
+  </nav>
+</div>
+
+<main id="home">
+  <header>
+    <div>
+      <h1>Practise baby signs at home</h1>
+      <p class="lede">20 everyday signs from American Sign Language (ASL) that families use with babies, with live feedback from your camera on your hand shape, where you sign, and the movement. Babies often start copying signs between 6 and 12 months.</p>
+    </div>
+  </header>
+  <p class="callout"><b>A practice aid, not a teacher.</b> These signs come from ASL, the language of the Deaf community. For real learning, watch Deaf signers in the example videos linked on every sign, and consider a class taught by a Deaf instructor. <a href="about.html#respect">Why this matters</a></p>
+  <div class="bar">
+    <div class="progress"><span id="progTxt">0 / 20 practised</span><div class="track" role="progressbar" aria-label="Signs practised" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0" id="progBar"><div class="fill" id="progFill"></div></div></div>
+    <button class="primary" id="startAll" type="button">Start practising</button>
+    <button id="quizBtn" type="button">Quiz me</button>
+  </div>
+  <div id="groups"></div>
+</main>
+
+<footer class="site">
+  <p>🔒 <b>Private by design:</b> the camera picture is analysed on this device and never uploaded, recorded or shared. No accounts, ads, cookies or analytics. Your progress is saved only in this browser. <a href="about.html#privacy">Privacy details</a></p>
+  <p>Little Hands is for at-home practice. It isn't a substitute for learning ASL from Deaf teachers, and it isn't medical or developmental advice. If you have any concerns about your baby's hearing or development, talk to your child's doctor. <a href="about.html#disclaimer">Full disclaimer</a></p>
+</footer>
+
+<section id="lesson" aria-label="Practice">
+  <video id="video" playsinline muted aria-hidden="true"></video>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="coach"><div id="coachTxt">Getting ready…</div></div>
+  <div id="celebrate" aria-hidden="true"><div id="celebTxt"></div></div>
+  <div id="camchip" hidden><span class="dot" aria-hidden="true"></span><span>Camera on · stays on this device</span><button type="button" id="stopCam">Turn off</button></div>
+  <div id="status" hidden><p id="statusTxt"></p><div class="actions" id="statusActions"></div></div>
+  <aside id="panel" aria-label="Sign details">
+    <div class="top"><button id="homeBtn" type="button">← All signs</button><span class="grp" id="grp"></span></div>
+    <div class="quizbar" id="quizbar" hidden><span id="quizPos"></span><span id="quizScore"></span></div>
+    <div class="title"><span class="e" id="emoji" aria-hidden="true"></span><h2 id="word"></h2></div>
+    <div class="gloss" id="gloss"></div>
+    <div class="visual" id="visual"></div>
+    <div id="howWrap"><h3>How to sign it</h3><ol id="how"></ol></div>
+    <div id="videoWrap">
+      <h3>Watch it signed</h3>
+      <div class="videos" id="videos"></div>
+      <p class="ext-note">Opens another website in a new tab. Little Hands sends nothing to it.</p>
+    </div>
+    <h3>Live check</h3>
+    <div class="checks" id="checks" aria-describedby="checksNote"></div>
+    <p class="sr-only" id="checksNote">Updates as the camera watches your hands.</p>
+    <div class="sr-only" aria-live="polite" id="announce"></div>
+    <div id="tipWrap"><h3>When to use it</h3><div class="tip" id="tip"></div></div>
+    <div class="nav"><button id="prevBtn" type="button">← Prev</button><button id="nextBtn" class="primary" type="button">Next →</button><button id="hintBtn" type="button" hidden>Show me how</button></div>
+  </aside>
+</section>
+
+<dialog id="welcome" aria-labelledby="welcomeTitle">
+  <div class="inner">
+    <h2 id="welcomeTitle">Welcome to Little Hands 👋</h2>
+    <p>Before you start, a few things worth knowing:</p>
+    <ul>
+      <li><b>It's private.</b> Your camera picture is analysed right here on your device. Nothing is uploaded, recorded or shared, and the app works offline.</li>
+      <li><b>It's practice, not a teacher.</b> These are signs from ASL, a full language of the Deaf community. Watch Deaf signers in the linked videos, and take a class from a Deaf instructor if you can.</li>
+      <li><b>The camera feedback is approximate.</b> It checks hand shape, place and movement with simple rules, so it can be fooled and can miss good signs. Your baby's versions will be much rougher, and that's completely normal.</li>
+      <li><b>It isn't medical advice.</b> If your baby is deaf or hard of hearing, or you're unsure, talk to your doctor and see the family resources on the <a href="about.html#resources">resources page</a>.</li>
+    </ul>
+    <div class="actions"><a href="about.html" class="link" style="align-self:center">Read more</a><button class="primary" id="welcomeOk" type="button" autofocus>Got it, let's start</button></div>
+  </div>
+</dialog>
+
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <div class="inner">
+    <h2 id="settingsTitle">Settings</h2>
+    <label class="setting"><span>Sound<small>A short chime when you sign correctly</small></span><input type="checkbox" id="setSound"></label>
+    <label class="setting"><span>Celebrations<small>Confetti when you sign correctly</small></span><input type="checkbox" id="setConfetti"></label>
+    <div class="setting"><span>Your progress<small>Stored only in this browser on this device</small></span><button type="button" id="clearProgress">Clear progress</button></div>
+    <div class="actions"><button class="primary" id="settingsDone" type="button">Done</button></div>
+  </div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

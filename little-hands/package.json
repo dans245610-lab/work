@@ -1,0 +1,15 @@
+{
+  "name": "little-hands",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Practise 20 everyday baby signs (ASL) at home with private, on-device camera feedback.",
+  "type": "module",
+  "scripts": {
+    "start": "node tests/serve.mjs",
+    "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.10.2",
+    "playwright": "1.56.1"
+  }
+}

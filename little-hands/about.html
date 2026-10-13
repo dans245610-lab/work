@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>About, resources &amp; privacy · Little Hands</title>
+<meta name="description" content="About Little Hands: how it works, respecting the Deaf community, where to learn more, privacy and disclaimers.">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/app.css">
+<style>
+  .doc { max-width: 760px; margin: 0 auto; padding: 18px 16px 60px; line-height: 1.6; overflow-wrap: anywhere; }
+  .doc h1 { font-size: 32px; margin: 8px 0 4px; }
+  .doc h2 { font-size: 22px; margin: 34px 0 6px; scroll-margin-top: 16px; }
+  .doc ul { padding-left: 20px; }
+  .doc li { margin: 6px 0; }
+  .doc .toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+  .doc .toc a { background: var(--card); border: 1.5px solid var(--line); border-radius: 999px; padding: 6px 12px; text-decoration: none; font-weight: 700; font-size: 14px; color: var(--fg); }
+  .res { display: grid; gap: 8px; margin: 10px 0; }
+  .res a { display: block; background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 14px; text-decoration: none; color: var(--fg); }
+  .res a b { display: block; }
+  .res a span { color: var(--muted); font-size: 14px; }
+  .muted { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="./"><span aria-hidden="true">👶</span> Little Hands</a>
+  <nav aria-label="Main"><a href="./">← Back to practice</a></nav>
+</div>
+<main class="doc">
+  <h1>About Little Hands</h1>
+  <p>Little Hands helps parents and caregivers practise 20 everyday signs at home, with live feedback from the camera on hand shape, place and movement. The signs come from American Sign Language (ASL).</p>
+  <div class="toc"><a href="#respect">Respecting ASL</a><a href="#resources">Learn more</a><a href="#how">How it works</a><a href="#privacy">Privacy</a><a href="#disclaimer">Disclaimer</a><a href="#accessibility">Accessibility</a><a href="#credits">Credits</a></div>
+
+  <h2 id="respect">ASL is a language: please learn it from Deaf people</h2>
+  <ul>
+    <li><b>ASL is a complete language</b>, with its own grammar, and the language of the Deaf community in the US and parts of Canada. “Baby sign” is just a handful of ASL words, not a separate language.</li>
+    <li><b>This app is a practice aid, not a teacher.</b> It can tell you roughly whether your hand is in the right shape and place. It can't teach you facial expression, grammar, culture or the many natural variations in how people sign.</li>
+    <li><b>Watch Deaf signers.</b> Every sign links to example videos. ASL University (Lifeprint) is run by Dr. Bill Vicars, a Deaf ASL teacher.</li>
+    <li><b>If you want to go further, take a class from a Deaf instructor</b>, or look for local Deaf community events. Your fees support Deaf teachers, and you'll learn far more than any app can show.</li>
+    <li><b>Signs vary.</b> Different regions and families sign some words differently. If a video shows a slightly different version, that's normal: follow the people your family will sign with.</li>
+  </ul>
+
+  <h2 id="resources">Learn more</h2>
+  <h3 class="muted">Learning ASL</h3>
+  <div class="res">
+    <a href="https://www.lifeprint.com/asl101/lessons/lessons.htm" target="_blank" rel="noopener noreferrer"><b>ASL University (Lifeprint) free lessons ↗</b><span>Structured free ASL lessons and a sign dictionary with videos, by Dr. Bill Vicars.</span></a>
+    <a href="https://www.signingsavvy.com/" target="_blank" rel="noopener noreferrer"><b>Signing Savvy ↗</b><span>ASL dictionary with videos of signs, including regional variations.</span></a>
+    <a href="https://www.nad.org/resources/american-sign-language/" target="_blank" rel="noopener noreferrer"><b>National Association of the Deaf: American Sign Language ↗</b><span>From the US civil rights organization of and for Deaf and hard of hearing people.</span></a>
+    <a href="https://www.nidcd.nih.gov/health/american-sign-language" target="_blank" rel="noopener noreferrer"><b>NIDCD: American Sign Language ↗</b><span>Background on ASL from the US National Institutes of Health.</span></a>
+  </div>
+  <h3 class="muted">If your baby is deaf or hard of hearing, or you're not sure</h3>
+  <div class="res">
+    <a href="https://www.cdc.gov/hearing-loss-children/" target="_blank" rel="noopener noreferrer"><b>CDC: Hearing loss in children ↗</b><span>Signs to look out for, screening, and early intervention.</span></a>
+    <a href="https://www.babyhearing.org/" target="_blank" rel="noopener noreferrer"><b>BabyHearing.org ↗</b><span>Information for families about hearing screening and next steps.</span></a>
+    <a href="https://handsandvoices.org/" target="_blank" rel="noopener noreferrer"><b>Hands &amp; Voices ↗</b><span>Parent-driven support for families of children who are deaf or hard of hearing.</span></a>
+  </div>
+  <p class="muted">These links open other websites in a new tab. Little Hands isn't affiliated with any of them and sends them nothing.</p>
+
+  <h2 id="how">How it works</h2>
+  <ul>
+    <li>Your browser runs two small on-device models (Google's open-source MediaPipe): one finds the 21 joints of each hand, the other finds your face and shoulders.</li>
+    <li>For each sign, simple rules check three things: the <b>hand shape</b> (which fingers are straight, bent or touching), the <b>place</b> (for example your thumb at your chin) and the <b>movement</b> (taps, circles, twists and so on).</li>
+    <li>The hand-shape rules were checked against about 2,700 photos of real hands, and every sign was tested with simulated hands. It's still an approximation: lighting, camera angle and different hands can confuse it.</li>
+  </ul>
+
+  <h2 id="privacy">Privacy</h2>
+  <ul>
+    <li><b>Your camera picture never leaves your device.</b> It is analysed in your browser frame by frame and immediately discarded. Nothing is recorded, uploaded or shared.</li>
+    <li><b>No accounts, ads, cookies, analytics or trackers.</b> The app loads nothing from other websites: the models and code are served from this site, and a security policy blocks connections anywhere else.</li>
+    <li><b>Stored on your device only:</b> which signs you've practised, your settings, and whether you've seen the welcome message, in your browser's local storage. Clear it any time in <b>Settings → Clear progress</b>, or by clearing this site's data in your browser.</li>
+    <li><b>Offline copy:</b> after your first visit, your browser keeps a copy of the app so it works offline. Clearing site data removes it.</li>
+    <li><b>The camera is only on while you're practising.</b> It turns off when you go back to the sign list, press “Turn off”, or switch to another tab.</li>
+    <li><b>Hosting:</b> like any website, the server that delivers the app's files may keep standard technical logs (such as IP addresses) of those downloads. The app itself sends nothing.</li>
+    <li><b>Example video links</b> go to other websites, which have their own privacy policies.</li>
+  </ul>
+
+  <h2 id="disclaimer">Disclaimer</h2>
+  <ul>
+    <li>Little Hands is an educational tool for at-home practice. It is <b>not medical, developmental, audiological or speech-therapy advice</b>. If you have any concerns about your child's hearing, speech or development, talk to your child's doctor or a qualified professional.</li>
+    <li>Signing with your baby works best alongside talking: say the word as you sign it. Babies develop at different rates, and not signing back early is completely normal.</li>
+    <li>The camera feedback is automated and approximate. It can mark a sign as correct when it isn't, or miss a correct sign. Use the linked videos as the reference.</li>
+    <li>The descriptions follow ASL signs as commonly taught; some signs have regional variants.</li>
+    <li>Always supervise young children around devices and cables.</li>
+    <li>The app is provided “as is”, without warranty of any kind.</li>
+  </ul>
+
+  <h2 id="accessibility">Accessibility</h2>
+  <ul>
+    <li>Everything works with a keyboard. Feedback is announced to screen readers, and animations follow your device's “reduce motion” setting. Sound and confetti can be turned off in Settings.</li>
+    <li>The live check depends on a camera and on seeing your hands and face. If that doesn't work for you, the diagrams, written steps and video links still work on their own.</li>
+  </ul>
+
+  <h2 id="credits">Credits</h2>
+  <ul>
+    <li>Hand and body tracking: <b>MediaPipe Tasks Vision</b> and its hand landmarker and pose landmarker (lite) models, by Google, under the Apache License 2.0. A copy of the licence is included with the app.</li>
+    <li>Hand-shape diagrams and thresholds were derived from hand landmarks measured on a public ASL alphabet photo dataset (Hugging Face: <i>Marxulia/asl_sign_languages_alphabets_v03</i>). No photos are included in the app.</li>
+    <li>Example sign videos: ASL University (Lifeprint) and Signing Savvy, linked, not embedded.</li>
+  </ul>
+  <p class="muted">Little Hands version 1.0.0</p>
+</main>
+</body>
+</html>
