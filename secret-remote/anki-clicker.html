@@ -39,6 +39,7 @@
   #map details { border-top: 1px solid var(--line); padding: 6px 0; }
   #map summary { font-weight: 600; font-size: 13px; color: var(--fg); }
   #map select.on { border-color: var(--accent); background: #eef5f8; }
+  canvas#meter { width: 100%; height: 16px; display: block; background: #efebe4; border-radius: 6px; margin-top: 8px; }
   video { width: 100%; max-width: 320px; border-radius: 10px; transform: scaleX(-1); background: #000; display: block; margin-top: 8px; }
   .pill { font: 12px ui-monospace, Menlo, monospace; background: #efebe4; border-radius: 99px; padding: 3px 9px; }
   .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-top: 12px; font-size: 14px; color: var(--muted); }
@@ -74,7 +75,7 @@
 <main>
   <section>
     <h1>Hands-free Anki clicker</h1>
-    <p class="muted">Review flashcards without touching anything: show a hand or raise your eyebrows. Treadmill desk, kitchen or workshop.
+    <p class="muted">Review flashcards without touching anything: show a hand, make a face, tap the desk or whistle. Treadmill desk, kitchen or workshop.
       Keyboard on this page: <kbd>Space</kbd> next · <kbd>1</kbd>–<kbd>4</kbd> rate · <kbd>U</kbd> undo · <kbd>L</kbd> pause watching.</p>
     <div class="row" style="margin:10px 0">
       <span class="seg" role="group" aria-label="Deck source">
@@ -127,22 +128,31 @@
       </div>
     </div>
 
-    <h2>Camera</h2>
+    <h2>Inputs</h2>
     <div class="row">
       <button class="primary" id="camBtn">Start camera</button>
+      <button class="primary" id="micBtn">Start mic</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <span class="muted">Camera watches:</span>
       <label class="muted"><input type="checkbox" id="useHands" checked> Hands</label>
       <label class="muted"><input type="checkbox" id="useFace" checked> Face</label>
     </div>
-    <div class="status muted" id="inStatus">Video is analysed on this computer and never recorded or sent.</div>
+    <div class="status muted" id="inStatus">Video and sound are analysed on this computer and never recorded or sent.</div>
+    <div id="micBox" hidden>
+      <canvas id="meter" width="320" height="16" aria-label="Microphone level; the orange line is the tap trigger"></canvas>
+      <div class="row" style="margin-top:6px"><span class="pill" id="soundTxt">sound: –</span></div>
+    </div>
     <div id="camBox" hidden>
       <video id="video" playsinline muted></video>
       <div class="row" style="margin-top:6px">
         <span class="pill" id="handTxt">hand: –</span><span class="pill" id="faceTxt">face: –</span><span class="pill" id="seenTxt">seen: –</span>
       </div>
+    </div>
+    <div id="calBox" hidden>
       <div class="row" style="margin-top:8px">
         <button id="calMine">Calibrate my gestures</button>
-        <button id="calAll" class="linkish">all 28</button>
-        <button id="calReset" class="linkish">reset</button>
+        <span><button id="calAll" class="linkish">all</button><button id="calReset" class="linkish">reset</button></span>
       </div>
       <div class="muted" id="calInfo" style="font-size:12px;margin-top:4px"></div>
     </div>
@@ -163,7 +173,7 @@
 
     <h2>Honest limits</h2>
     <p class="note">Anki desktop has to be open on <b>this</b> computer. The phone apps don't run AnkiConnect. Nothing leaves your machine: this page only talks to Anki on <code>localhost</code>.</p>
-    <p class="note">Your camera light will be on while the camera runs; a page can't hide it. Misfire? Tap <b>Undo</b> or press <kbd>U</kbd>.</p>
+    <p class="note">Your camera light and the browser's mic indicator will be on while those inputs run; a page can't hide them. Misfire? Tap <b>Undo</b> or press <kbd>U</kbd>.</p>
   </aside>
 </main>
 
@@ -267,6 +277,7 @@ function answerOnly(card) { const i = (card.answer || "").search(/<hr id=["']?an
 
 let backend = DemoDeck;
 let Cal = null, calibrating = false, calControl = null;   // calibration (loaded with the camera)
+let cam = null, mic = null, Audio = null;
 
 /* ============ Rendering ============ */
 function setCard(v) {
@@ -307,7 +318,10 @@ const GROUPS = [
     ["jaw", "😮", "Mouth wide open"], ["mouthLeft", "😏", "Mouth to your left"], ["mouthRight", "😏", "Mouth to your right"],
     ["dblink", "😑", "Double blink"], ["longBlink", "😌", "Eyes shut 1 second"], ["winkLeft", "😉", "Wink left eye"], ["winkRight", "😉", "Wink right eye"]]],
   ["Head", [["nod", "↕️", "Nod (yes)"], ["shake", "↔️", "Shake (no)"], ["tiltLeft", "↖️", "Tilt head to your left"], ["tiltRight", "↗️", "Tilt head to your right"]]],
+  ["Sounds", [["tap1", "👆", "1 desk tap"], ["tap2", "✌", "2 quick taps"], ["tap3", "🤟", "3 quick taps"], ["click", "🖊", "Pen click / finger snap"],
+    ["whistle", "🎵", "Whistle a note"], ["whistleUp", "⤴️", "Whistle sliding up"], ["whistleDown", "⤵️", "Whistle sliding down"]]],
 ];
+const SOUND_IDS = new Set(GROUPS[3][1].map(([id]) => id));
 const GESTURES = GROUPS.flatMap(([, list]) => list);
 const G = Object.fromEntries(GESTURES.map(([id, icon, label]) => [id, { icon, label }]));
 const PRESETS = {
@@ -319,6 +333,10 @@ const PRESETS = {
     map: { raise: "next", nod: "rate3", shake: "rate1", smile: "rate4", frown: "rate2", tiltLeft: "undo" } },
   head: { name: "Head only (no expressions)", help: "Tilt right shows the answer. Nod = Good, shake = Again, tilt left to undo. Works with glasses, masks and beards.",
     map: { tiltRight: "next", nod: "rate3", shake: "rate1", tiltLeft: "undo" } },
+  taps: { name: "Desk taps (+ eyebrows)", help: "Mic: tap once to show the answer, tap again for Good; double tap = Again, triple tap = undo. Camera (optional): eyebrows up = Easy.",
+    map: { tap1: "next", tap2: "rate1", tap3: "undo", raise: "rate4" } },
+  sounds: { name: "Sounds only (no camera)", help: "Tap = next, double tap = Again, triple tap = undo, whistle = Good, whistle up = Easy, whistle down = Hard.",
+    map: { tap1: "next", tap2: "rate1", tap3: "undo", whistle: "rate3", whistleUp: "rate4", whistleDown: "rate2" } },
   custom: { name: "Custom", help: "Your own mapping. Pick a preset to start again from it.", map: null },
 };
 const SHORT = { next: "next", rate1: "Again", rate2: "Hard", rate3: "Good", rate4: "Easy", undo: "undo" };
@@ -334,7 +352,10 @@ $("map").innerHTML = GROUPS.map(([group, list], gi) => `<details><summary>${grou
 function syncUI() {
   $("preset").value = preset; $("presetHelp").textContent = PRESETS[preset].help;
   for (const [id] of GESTURES) { $("m-" + id).value = map[id]; $("m-" + id).classList.toggle("on", map[id] !== "none"); }
-  for (const [group, list] of GROUPS) { const n = list.filter(([id]) => map[id] !== "none").length; $("n-" + group).textContent = n ? `· ${n} on` : ""; }
+  for (const [group, list] of GROUPS) {
+    const n = list.filter(([id]) => map[id] !== "none").length, off = group === "Sounds" ? !mic : !cam;
+    $("n-" + group).textContent = n ? `· ${n} on${off ? (group === "Sounds" ? " (mic off)" : " (camera off)") : ""}` : "";
+  }
   if (Cal) updateCalInfo();
   $("legend").replaceChildren(...GESTURES.filter(([id]) => map[id] !== "none").map(([id, icon, label]) => {
     const sp = document.createElement("span"); sp.title = label; sp.append(icon + " "); const b = document.createElement("b"); b.textContent = SHORT[map[id]]; sp.append(b); return sp; }));
@@ -382,9 +403,8 @@ $("connectBtn").onclick = async () => {
 $("reviewBtn").onclick = async () => { store.set("deck", $("deckSel").value); try { flash(await AnkiBackend.startReview($("deckSel").value)); } catch (e) { flash("⚠ " + e.message); } render(); };
 
 /* ============ Camera: hands + face ============ */
-let cam = null;
 $("camBtn").onclick = async () => {
-  if (cam) { cam.stop(); cam = null; $("camBox").hidden = true; $("camBtn").textContent = "Start camera"; $("inStatus").textContent = "Camera off."; return; }
+  if (cam) { cam.stop(); cam = null; $("camBox").hidden = true; $("camBtn").textContent = "Start camera"; $("inStatus").textContent = "Camera off."; inputsChanged(); return; }
   $("camBtn").disabled = true; $("inStatus").textContent = "Starting camera and hand + face tracking…";
   try {
     const { GestureCam } = await import("./camera-demo/gesture-cam.js");
@@ -394,7 +414,7 @@ $("camBtn").onclick = async () => {
       onFace: f => { $("faceTxt").textContent = f ? "face: ✓" : "face: looking…"; },
     });
     cam.use.hands = $("useHands").checked; cam.use.face = $("useFace").checked;
-    await loadCal(); Cal.applyCalibration(store.get("calibration", null)); updateCalInfo();
+    await loadCal(); Cal.applyCalibration(store.get("calibration", null)); inputsChanged();
     $("camBox").hidden = false; $("camBtn").textContent = "Stop camera";
     $("inStatus").textContent = "Camera on. Try an open hand 🖐 or a nod to test.";
   } catch (e) {
@@ -404,13 +424,46 @@ $("camBtn").onclick = async () => {
 $("useHands").onchange = e => cam && (cam.use.hands = e.target.checked);
 $("useFace").onchange = e => cam && (cam.use.face = e.target.checked);
 
+/* ============ Microphone: taps, clicks, whistles (see audio-remote.js) ============ */
+const meter = $("meter"), mg = meter.getContext("2d");
+function drawMeter(rms, floor, thr) {
+  const sc = v => Math.min(1, Math.sqrt(v / 0.3)) * meter.width;   // sqrt scale so quiet levels are visible
+  mg.clearRect(0, 0, meter.width, meter.height);
+  mg.fillStyle = rms > thr ? "#2f7d5b" : "#9fb7a9"; mg.fillRect(0, 3, sc(rms), meter.height - 6);
+  mg.fillStyle = "#b45a1c"; mg.fillRect(sc(thr) - 1, 0, 3, meter.height);
+  mg.fillStyle = "#77706a"; mg.fillRect(sc(floor) - 1, 0, 2, meter.height);
+}
+let soundT = 0;
+$("micBtn").onclick = async () => {
+  if (mic) { mic.stop(); mic = null; $("micBox").hidden = true; $("micBtn").textContent = "Start mic"; $("inStatus").textContent = "Mic off."; inputsChanged(); return; }
+  $("micBtn").disabled = true;
+  try {
+    ({ AudioRemote: Audio } = await import("./audio-remote.js"));
+    Audio.apply(store.get("calibration", null));
+    mic = await Audio.start({
+      onGesture: gesture, onLevel: drawMeter,
+      onSound: k => { $("soundTxt").textContent = "sound: " + k; clearTimeout(soundT); soundT = setTimeout(() => ($("soundTxt").textContent = "sound: –"), 1500); },
+    });
+    $("micBox").hidden = false; $("micBtn").textContent = "Stop mic";
+    $("inStatus").textContent = mic.noiseSuppressionHonored ? "Mic on. Tap the desk or whistle to test (single taps wait ~0.65 s to rule out a double)." : "Mic on, but this device forces noise suppression, so soft taps may be missed. Calibrate, and tap firmly.";
+    await loadCal(); inputsChanged();
+  } catch (e) { $("inStatus").textContent = `Mic unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`; }
+  finally { $("micBtn").disabled = false; }
+};
+function inputsChanged() { $("calBox").hidden = !(cam || mic); syncUI(); }
+
 /* ============ Calibration (every gesture; see camera-demo/calibration.js) ============ */
 const loadCal = async () => (Cal = Cal || await import("./camera-demo/calibration.js"));
 function usedGestures() { return GESTURES.filter(([id]) => map[id] !== "none").map(([id]) => id); }
+// Steps for the inputs that are switched on (camera steps need the camera, sound steps the mic).
+function plan(ids) {
+  const test = !!window.__calTestFrames;
+  return [...((cam || test) ? Cal.planSteps(ids.filter(id => !SOUND_IDS.has(id))) : []), ...((mic || test) && Audio ? Audio.planSteps(ids.filter(id => SOUND_IDS.has(id))) : [])];
+}
 function updateCalInfo() {
   const saved = store.get("calibration", null);
-  const plan = Cal ? Cal.planSteps(usedGestures()) : null;
-  $("calMine").textContent = plan ? `Calibrate my gestures (~${Math.max(1, Math.round(Cal.estimateSeconds(plan) / 60 * 2) / 2)} min)` : "Calibrate my gestures";
+  const steps = Cal ? plan(usedGestures()) : null;
+  $("calMine").textContent = steps && steps.length ? `Calibrate my gestures (~${Math.max(0.5, Math.round(Cal.estimateSeconds(steps) / 60 * 2) / 2)} min)` : "Calibrate my gestures";
   if (!saved) { $("calInfo").textContent = "Not calibrated yet: using defaults that suit most people."; return; }
   const okN = saved.report.filter(r => r.ok).length, badN = saved.report.filter(r => r.ok === false).length;
   $("calInfo").textContent = `Calibrated ${new Date(saved.at).toLocaleDateString()} · ${okN} ✓${badN ? ` · ${badN} ⚠ (defaults kept)` : ""}`;
@@ -418,18 +471,19 @@ function updateCalInfo() {
 async function startCalibration(all) {
   if (calibrating) return;
   await loadCal();
-  const steps = Cal.planSteps(all ? GESTURES.map(([id]) => id) : usedGestures());
-  if (!steps.length) { flash("No gestures are mapped to anything yet"); return; }
-  if (!cam && !window.__calTestFrames) { flash("Start the camera first"); return; }
+  if (!cam && !mic && !window.__calTestFrames) { flash("Start the camera or mic first"); return; }
+  const steps = plan(all ? GESTURES.map(([id]) => id) : usedGestures());
+  if (!steps.length) { flash(cam && mic ? "No gestures are mapped to anything yet" : `Nothing to calibrate with the ${cam ? "camera" : "mic"} for the gestures you use`); return; }
   calibrating = true;
   const prevUse = cam ? { ...cam.use } : null; if (cam) { cam.use.hands = true; cam.use.face = true; }
   $("calib").hidden = false; $("cardbox").hidden = true; $("demoControls").hidden = true; $("legend").hidden = true;
   $("calReport").hidden = true; $("calDone").hidden = true; $("calSkip").hidden = false; $("calStop").hidden = false; $("calMeterBox").hidden = false;
   calControl = { skip: false, stop: false };
   let stepId = null;
-  const source = window.__calTestFrames
-    ? { subscribe(fn) { const t0 = performance.now(), iv = setInterval(() => fn(window.__calTestFrames(stepId, (performance.now() - t0) / 1000)), 33); return () => clearInterval(iv); } }
-    : { subscribe(fn) { cam.onRaw = fn; return () => { cam.onRaw = null; }; } };
+  const testSrc = { subscribe(fn) { const t0 = performance.now(), iv = setInterval(() => fn(window.__calTestFrames(stepId, (performance.now() - t0) / 1000)), 33); return () => clearInterval(iv); } };
+  const sources = window.__calTestFrames ? { camera: testSrc, audio: testSrc } : {
+    camera: { subscribe(fn) { cam.onRaw = fn; return () => { cam.onRaw = null; }; } },
+    audio: { subscribe(fn) { mic.onRaw = fn; return () => { mic.onRaw = null; }; } } };
   const ui = {
     control: calControl,
     step(st, i, n) {
@@ -451,13 +505,13 @@ async function startCalibration(all) {
       $("calResult").textContent = (res.ok ? "✓ " : res.ok === false ? "⚠ " : "") + res.msg;
     },
   };
-  const cal = await Cal.runCalibration(steps, source, ui);
+  const cal = await Cal.runCalibration(steps, sources, ui, Audio ? { audio: Audio.CFG } : {});
   // Keep earlier results for gestures not covered this time; this run's values win.
-  const prev = store.get("calibration", null) || { face: {}, hand: {}, swipe: {}, report: [] };
+  const prev = { face: {}, hand: {}, swipe: {}, audio: {}, report: [], ...(store.get("calibration", null) || {}) };
   const report = [...prev.report.filter(r => !cal.report.some(c => c.id === r.id)), ...cal.report];
-  const merged = { face: { ...prev.face, ...cal.face }, hand: { ...prev.hand, ...cal.hand }, swipe: { ...prev.swipe, ...cal.swipe }, report, at: cal.at };
+  const merged = { report, at: cal.at }; for (const k of ["face", "hand", "swipe", "audio"]) merged[k] = { ...prev[k], ...(cal[k] || {}) };
   if (cal.report.length) store.set("calibration", merged);
-  Cal.applyCalibration(store.get("calibration", null));
+  Cal.applyCalibration(store.get("calibration", null)); if (Audio) Audio.apply(store.get("calibration", null));
   if (prevUse) Object.assign(cam.use, prevUse);
   // Summary
   $("calStepNo").textContent = calControl.stop ? "Calibration stopped" : "Calibration finished";
@@ -471,7 +525,7 @@ async function startCalibration(all) {
 function endCalibration() { calibrating = false; $("calib").hidden = true; $("cardbox").hidden = false; $("demoControls").hidden = false; $("legend").hidden = false; render(); }
 $("calMine").onclick = () => startCalibration(false);
 $("calAll").onclick = () => startCalibration(true);
-$("calReset").onclick = async () => { await loadCal(); store.set("calibration", null); Cal.applyCalibration(null); updateCalInfo(); flash("Calibration reset to defaults"); };
+$("calReset").onclick = async () => { await loadCal(); store.set("calibration", null); Cal.applyCalibration(null); if (Audio) Audio.apply(null); updateCalInfo(); flash("Calibration reset to defaults"); };
 $("calSkip").onclick = () => calControl && (calControl.skip = true);
 $("calStop").onclick = () => calControl && (calControl.stop = true);
 $("calDone").onclick = endCalibration;
@@ -490,7 +544,7 @@ addEventListener("keydown", e => {
 });
 
 setMode(store.get("mode", "demo") === "anki");
-if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, startCalibration, loadCal, get Cal() { return Cal; }, get cam() { return cam; }, get backend() { return backend; } };
+if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, startCalibration, loadCal, loadAudio: async () => ({ AudioRemote: Audio } = await import("./audio-remote.js")), get Cal() { return Cal; }, get cam() { return cam; }, get backend() { return backend; } };
 </script>
 </body>
 </html>

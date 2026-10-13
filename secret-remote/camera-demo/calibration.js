@@ -1,7 +1,9 @@
 // Calibration for every gesture: watch the user do each one, then set that gesture's thresholds from what was seen.
 //
 //   planSteps(gestureIds)              → the steps needed for those gestures (in a sensible order)
-//   runCalibration(steps, source, ui)  → Promise<calibration>   source.subscribe(frame => …) returns an unsubscribe fn
+//   runCalibration(steps, sources, ui, extraTargets) → Promise<calibration>
+//       sources = { camera, audio }: each has subscribe(frame => …) returning an unsubscribe fn; a step's `source`
+//       picks one (default camera). extraTargets = { audio: AudioRemote.CFG } receives results under those keys.
 //   applyCalibration(cal)              → reset to defaults, then apply a saved calibration
 //
 // A frame is what GestureCam.onRaw gives: { t, aspect, face: { brow, blinkL, …, yaw, pitch, roll } | null, hands: [{ lm, pose, pos }] }.
@@ -273,14 +275,17 @@ export const estimateSeconds = steps => Math.round(steps.reduce((s, st) => s + s
 
 /* ---------- runner ---------- */
 // ui: { step(step, i, n), phase("ready"|"go", fraction), meter(x), result(step, res), control: { skip, stop } }
-export async function runCalibration(steps, source, ui) {
+export async function runCalibration(steps, sources, ui, extraTargets = {}) {
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const ctx = {}, cal = { face: {}, hand: {}, swipe: {}, report: [] };
+  if (sources.subscribe) sources = { camera: sources };
+  const targets = { face: FaceRemote.CFG, hand: POSE_CFG, swipe: SWIPE_CFG, ...extraTargets };
+  const ctx = {}, cal = { report: [] }; for (const k in targets) cal[k] = {};
   for (let i = 0; i < steps.length && !ui.control.stop; i++) {
     const step = steps[i]; ui.control.skip = false;
     ui.step(step, i, steps.length);
     const r0 = performance.now(), readyMs = STEP_SECONDS * 1000;   // wall-clock, so a busy CPU can't stretch it
     while (performance.now() - r0 < readyMs && !ui.control.skip && !ui.control.stop) { ui.phase("ready", 1 - (performance.now() - r0) / readyMs); await wait(100); }
+    const source = sources[step.source || "camera"];
     const frames = [], unsub = source.subscribe(f => { frames.push(f); ui.meter(step.meter ? step.meter(f, ctx) : 0); });
     const t0 = performance.now();
     // On a slow computer few frames arrive, so keep recording (up to 2.5× longer) until there are enough to judge.
@@ -292,10 +297,7 @@ export async function runCalibration(steps, source, ui) {
     if (ui.control.skip) res = { ok: null, msg: "Skipped; kept the previous setting." };
     else {
       try { res = step.analyse(frames, ctx); } catch (e) { res = fail("Something went wrong analysing this step: " + e.message); }
-      for (const k of ["face", "hand", "swipe"]) if (res[k]) Object.assign(cal[k], res[k]);
-      if (res.face) Object.assign(FaceRemote.CFG, res.face);
-      if (res.hand) Object.assign(POSE_CFG, res.hand);
-      if (res.swipe) Object.assign(SWIPE_CFG, res.swipe);
+      for (const k in targets) if (res[k]) { Object.assign(cal[k], res[k]); Object.assign(targets[k], res[k]); }
       if (res.ok && step.after) res.msg += step.after(ctx);
     }
     cal.report.push({ id: step.id, icon: step.icon, title: step.title, ok: res.ok, msg: res.msg });
