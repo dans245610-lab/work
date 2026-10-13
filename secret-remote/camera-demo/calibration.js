@@ -8,8 +8,8 @@
 //
 // A frame is what GestureCam.onRaw gives: { t, aspect, face: { brow, blinkL, …, yaw, pitch, roll } | null, hands: [{ lm, pose, pos }] }.
 // Each step's analyse() is a pure function of the recorded frames, so it can be tested without a camera.
-import { FaceRemote } from "./face-remote.js";
-import { POSE_CFG, SWIPE_CFG, classifyHand, handFeatures } from "./hand-poses.js";
+import { FaceRemote } from "./face-remote.js?v=8";
+import { POSE_CFG, SWIPE_CFG, classifyHand, handFeatures } from "./hand-poses.js?v=8";
 
 const DEFAULTS = { face: { ...FaceRemote.CFG }, hand: JSON.parse(JSON.stringify(POSE_CFG)), swipe: { ...SWIPE_CFG } };
 export function applyCalibration(cal) {

@@ -177,6 +177,10 @@ There are 35 gestures: 28 from the camera and 7 from the mic. Every one can be m
   - Hosted on a website (not `localhost`), Chrome may ask to allow access to devices on your local network. Allow it, or run the page locally.
   - Safari may block a hosted page from reaching `localhost` at all.
 
+## Updating the code
+
+Module imports carry a version query (`?v=8`), so browsers can't combine a new page with old cached modules. When you change any `.js` module, bump the number everywhere: `grep -rn "?v=" secret-remote`. If someone still sees "does not provide an export named …", a hard refresh (Ctrl/Cmd+Shift+R) fixes it.
+
 ## Honest limits
 
 - **Camera LED:** your camera light will be on. On most laptops the LED is wired in hardware, and no web page can hide it.

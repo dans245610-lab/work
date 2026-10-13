@@ -403,11 +403,15 @@ $("connectBtn").onclick = async () => {
 $("reviewBtn").onclick = async () => { store.set("deck", $("deckSel").value); try { flash(await AnkiBackend.startReview($("deckSel").value)); } catch (e) { flash("⚠ " + e.message); } render(); };
 
 /* ============ Camera: hands + face ============ */
+// Module URLs carry ?v=N (bump it whenever a module changes) so a browser can't mix a new page with old cached
+// modules. If it happens anyway (e.g. a copy cached before versioning), say how to fix it.
+const STALE = /does not provide an export|is not a function|Failed to fetch dynamically imported/i;
+const STALE_MSG = "This page loaded old cached files. Hard-refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac).";
 $("camBtn").onclick = async () => {
   if (cam) { cam.stop(); cam = null; $("camBox").hidden = true; $("camBtn").textContent = "Start camera"; $("inStatus").textContent = "Camera off."; inputsChanged(); return; }
   $("camBtn").disabled = true; $("inStatus").textContent = "Starting camera and hand + face tracking…";
   try {
-    const { GestureCam } = await import("./camera-demo/gesture-cam.js");
+    const { GestureCam } = await import("./camera-demo/gesture-cam.js?v=8");
     cam = await GestureCam.start($("video"), {
       onGesture: gesture,
       onHandPose: p => ($("handTxt").textContent = "hand: " + (p ? G[p].icon + " " + p : "–")),
@@ -418,7 +422,8 @@ $("camBtn").onclick = async () => {
     $("camBox").hidden = false; $("camBtn").textContent = "Stop camera";
     $("inStatus").textContent = "Camera on. Try an open hand 🖐 or a nod to test.";
   } catch (e) {
-    $("inStatus").textContent = location.protocol === "file:" ? "The camera needs this page served over http(s), not opened as a file. See the README." : `Camera unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`;
+    $("inStatus").textContent = location.protocol === "file:" ? "The camera needs this page served over http(s), not opened as a file. See the README."
+      : STALE.test(e.message) ? STALE_MSG : `Camera unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`;
   } finally { $("camBtn").disabled = false; }
 };
 $("useHands").onchange = e => cam && (cam.use.hands = e.target.checked);
@@ -438,7 +443,7 @@ $("micBtn").onclick = async () => {
   if (mic) { mic.stop(); mic = null; $("micBox").hidden = true; $("micBtn").textContent = "Start mic"; $("inStatus").textContent = "Mic off."; inputsChanged(); return; }
   $("micBtn").disabled = true;
   try {
-    ({ AudioRemote: Audio } = await import("./audio-remote.js"));
+    ({ AudioRemote: Audio } = await import("./audio-remote.js?v=8"));
     Audio.apply(store.get("calibration", null));
     mic = await Audio.start({
       onGesture: gesture, onLevel: drawMeter,
@@ -447,13 +452,13 @@ $("micBtn").onclick = async () => {
     $("micBox").hidden = false; $("micBtn").textContent = "Stop mic";
     $("inStatus").textContent = mic.noiseSuppressionHonored ? "Mic on. Tap the desk or whistle to test (single taps wait ~0.65 s to rule out a double)." : "Mic on, but this device forces noise suppression, so soft taps may be missed. Calibrate, and tap firmly.";
     await loadCal(); inputsChanged();
-  } catch (e) { $("inStatus").textContent = `Mic unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`; }
+  } catch (e) { $("inStatus").textContent = STALE.test(e.message) ? STALE_MSG : `Mic unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`; }
   finally { $("micBtn").disabled = false; }
 };
 function inputsChanged() { $("calBox").hidden = !(cam || mic); syncUI(); }
 
 /* ============ Calibration (every gesture; see camera-demo/calibration.js) ============ */
-const loadCal = async () => (Cal = Cal || await import("./camera-demo/calibration.js"));
+const loadCal = async () => (Cal = Cal || await import("./camera-demo/calibration.js?v=8"));
 function usedGestures() { return GESTURES.filter(([id]) => map[id] !== "none").map(([id]) => id); }
 // Steps for the inputs that are switched on (camera steps need the camera, sound steps the mic).
 function plan(ids) {
@@ -544,7 +549,7 @@ addEventListener("keydown", e => {
 });
 
 setMode(store.get("mode", "demo") === "anki");
-if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, startCalibration, loadCal, loadAudio: async () => ({ AudioRemote: Audio } = await import("./audio-remote.js")), get Cal() { return Cal; }, get cam() { return cam; }, get backend() { return backend; } };
+if (location.hash.includes("debug")) window.__clicker = { gesture, perform, DemoDeck, AnkiBackend, map, startCalibration, loadCal, loadAudio: async () => ({ AudioRemote: Audio } = await import("./audio-remote.js?v=8")), get Cal() { return Cal; }, get cam() { return cam; }, get backend() { return backend; } };
 </script>
 </body>
 </html>
