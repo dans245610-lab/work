@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flappy · Secret Camera Remote</title>
+<style>
+  :root { --bg: #eef1f5; --fg: #1f2329; --muted: #6a7280; --accent: #3557c4; --line: #d5dbe5; --card: #fff; --ok: #2f8a5b; --warn: #b45a1c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+  @media (max-width: 840px) { main { grid-template-columns: 1fr; } }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  canvas#game { width: 100%; aspect-ratio: 3 / 4; max-height: 78vh; border-radius: 12px; background: #8fd3e8; display: block; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+  .panel h2:first-child { margin-top: 0; }
+  button { font: 600 14px system-ui, sans-serif; border-radius: 8px; border: 1px solid var(--line); background: #f6f8fb; padding: 8px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  video { width: 120px; border-radius: 8px; transform: scaleX(-1); background: #000; }
+  #status { font-size: 14px; margin: 8px 0; min-height: 1.4em; }
+  #face { font-weight: 700; font-size: 13px; }
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 64px 1fr 42px; gap: 8px; align-items: center; font: 12px ui-monospace, Menlo, monospace; }
+  .track { position: relative; height: 14px; background: #edf0f5; border-radius: 4px; overflow: hidden; }
+  .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: #9fb0de; }
+  .fill.over { background: var(--ok); }
+  .thr { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--warn); }
+  #log { font: 12px ui-monospace, Menlo, monospace; height: 120px; overflow-y: auto; background: #f6f8fb; border-radius: 8px; padding: 6px 8px; margin: 0; list-style: none; }
+  .note { background: #fff4e3; border: 1px solid #f0d9b5; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.5; }
+  kbd { font: 12px ui-monospace, Menlo, monospace; background: #edf0f5; border-radius: 4px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Flappy, controlled by your face</h1>
+    <p class="muted">Raise your eyebrows to flap · double-blink to pause · open your mouth to restart after a crash. Keyboard always works: <kbd>Space</kbd> flap · <kbd>P</kbd> pause · <kbd>R</kbd> restart.</p>
+    <canvas id="game" width="360" height="480"></canvas>
+  </section>
+  <aside class="panel">
+    <h2>Camera</h2>
+    <div class="row"><button class="primary" id="camBtn">Enable camera</button><button id="calBtn" disabled>Calibrate (15 s)</button></div>
+    <div id="status" class="muted">Camera is off. The game still works with the keyboard.</div>
+    <div class="row"><video id="video" playsinline muted></video><span id="face" class="muted"></span></div>
+    <h2>Live signals</h2>
+    <div class="bars" id="bars"></div>
+    <h2>Events</h2>
+    <ul id="log"></ul>
+    <h2>Heads up</h2>
+    <p class="note"><b>Your camera's light will be on.</b> On most laptops it's wired in hardware and turns on whenever the camera streams; no web page can hide it. Video is analysed on this device and never recorded or sent anywhere.</p>
+  </aside>
+</main>
+
+<script type="module">
+import { FaceRemote } from "./face-remote.js";
+
+/* ===== Minimal Flappy (same as the tap demo) ===== */
+const Flappy = (() => {
+  const cv = document.getElementById("game"), g = cv.getContext("2d"), W = cv.width, H = cv.height;
+  const GAP = 150, PIPE_W = 56, SPEED = 120, GRAV = 850, FLAP_V = -285;
+  let bird, pipes, score, best = 0, state = "ready", last = performance.now(), spawnIn = 0;
+  function reset() { bird = { x: 90, y: H / 2, vy: 0 }; pipes = []; score = 0; spawnIn = 0.6; state = "ready"; }
+  function flap() { if (state === "dead") return; if (state === "ready" || state === "paused") state = "play"; bird.vy = FLAP_V; }
+  function togglePause() { if (state === "play") state = "paused"; else if (state === "paused") state = "play"; }
+  function step(dt) {
+    if (state !== "play") return;
+    bird.vy += GRAV * dt; bird.y += bird.vy * dt; spawnIn -= dt;
+    if (spawnIn <= 0) { spawnIn = 1.65; pipes.push({ x: W + 10, gapY: 90 + Math.random() * (H - 180 - GAP), scored: false }); }
+    for (const p of pipes) {
+      p.x -= SPEED * dt;
+      if (!p.scored && p.x + PIPE_W < bird.x) { p.scored = true; score++; best = Math.max(best, score); }
+      if (bird.x + 13 > p.x && bird.x - 13 < p.x + PIPE_W && (bird.y - 11 < p.gapY || bird.y + 11 > p.gapY + GAP)) state = "dead";
+    }
+    pipes = pipes.filter(p => p.x > -PIPE_W);
+    if (bird.y > H - 30 || bird.y < -40) state = "dead";
+  }
+  function draw() {
+    g.fillStyle = "#8fd3e8"; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#e9dcae"; g.fillRect(0, H - 30, W, 30); g.fillStyle = "#79c25b"; g.fillRect(0, H - 34, W, 6);
+    for (const p of pipes) {
+      g.fillStyle = "#5cb85c"; g.fillRect(p.x, 0, PIPE_W, p.gapY); g.fillRect(p.x, p.gapY + GAP, PIPE_W, H - p.gapY - GAP - 30);
+      g.fillStyle = "#3e8e41"; g.fillRect(p.x - 4, p.gapY - 18, PIPE_W + 8, 18); g.fillRect(p.x - 4, p.gapY + GAP, PIPE_W + 8, 18);
+    }
+    g.save(); g.translate(bird.x, bird.y); g.rotate(Math.max(-0.5, Math.min(1.2, bird.vy / 500)));
+    g.fillStyle = "#ffd23f"; g.beginPath(); g.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(6, -4, 5, 0, 7); g.fill(); g.fillStyle = "#222"; g.beginPath(); g.arc(8, -4, 2.2, 0, 7); g.fill();
+    g.fillStyle = "#f28c28"; g.beginPath(); g.moveTo(14, 1); g.lineTo(24, 4); g.lineTo(14, 7); g.fill(); g.restore();
+    g.fillStyle = "#fff"; g.strokeStyle = "#333"; g.lineWidth = 4; g.font = "bold 40px system-ui"; g.textAlign = "center";
+    g.strokeText(score, W / 2, 60); g.fillText(score, W / 2, 60);
+    const msg = { ready: "Raise your eyebrows to start", paused: "Paused", dead: `Game over · best ${best}` }[state];
+    if (msg) { g.font = "bold 20px system-ui"; g.strokeText(msg, W / 2, H / 2 - 40); g.fillText(msg, W / 2, H / 2 - 40); if (state === "dead") { g.font = "bold 15px system-ui"; g.strokeText("open your mouth or press R", W / 2, H / 2 - 12); g.fillText("open your mouth or press R", W / 2, H / 2 - 12); } }
+  }
+  function loop(ms) { const dt = Math.min(0.04, (ms - last) / 1000); last = ms; step(dt); draw(); requestAnimationFrame(loop); }
+  reset(); requestAnimationFrame(loop);
+  return { flap, togglePause, restart: reset, get state() { return state; } };
+})();
+
+/* ===== wiring + debug strip ===== */
+const $ = id => document.getElementById(id);
+const log = t => { const li = document.createElement("li"); li.textContent = `${new Date().toLocaleTimeString()}  ${t}`; $("log").prepend(li); while ($("log").children.length > 50) $("log").lastChild.remove(); };
+addEventListener("keydown", e => {
+  if (e.code === "Space") { e.preventDefault(); Flappy.flap(); }
+  if (e.key === "p" || e.key === "P") Flappy.togglePause();
+  if (e.key === "r" || e.key === "R") Flappy.restart();
+});
+$("game").addEventListener("pointerdown", () => Flappy.flap());
+
+const BARS = [["brow", "browThreshold"], ["blinkL", "blinkThreshold"], ["blinkR", "blinkThreshold"], ["jaw", "jawThreshold"]];
+$("bars").innerHTML = BARS.map(([k]) => `<div class="bar"><span>${k}</span><div class="track"><div class="fill" id="f-${k}"></div><div class="thr" id="t-${k}"></div></div><span id="v-${k}">–</span></div>`).join("");
+function showValues(v) {
+  for (const [k, thrKey] of BARS) {
+    const thr = FaceRemote.CFG[thrKey];
+    $(`f-${k}`).style.width = `${Math.round(v[k] * 100)}%`;
+    $(`f-${k}`).classList.toggle("over", v[k] >= thr);
+    $(`t-${k}`).style.left = `${thr * 100}%`;
+    $(`v-${k}`).textContent = v[k].toFixed(2);
+  }
+}
+const handlers = {
+  onRaise: v => { log(`eyebrows up (${v.toFixed(2)}) → flap`); Flappy.flap(); },
+  onDoubleBlink: () => { log("double blink → pause"); Flappy.togglePause(); },
+  onJaw: v => { if (Flappy.state === "dead") { log(`mouth open (${v.toFixed(2)}) → restart`); Flappy.restart(); } },
+  onFace: found => { $("face").textContent = found ? "✓ face found" : "Looking for your face… (light on your face, look at the screen)"; $("face").style.color = found ? "var(--ok)" : "var(--warn)"; },
+  onFrame: showValues,
+};
+$("camBtn").onclick = async () => {
+  $("camBtn").disabled = true;
+  $("status").textContent = "Starting camera and face tracking…";
+  try {
+    await FaceRemote.init($("video"), handlers);
+    $("status").textContent = "Ready. Raise your eyebrows to flap. Calibrate for best results.";
+    $("calBtn").disabled = false;
+  } catch (e) {
+    $("camBtn").disabled = false;
+    const why = e.name === "NotAllowedError" ? "camera permission was blocked" : e.name === "NotFoundError" ? "no camera found" : e.message || e.name;
+    $("status").textContent = `Camera unavailable (${why}). Keyboard controls still work.`;
+  }
+};
+$("calBtn").onclick = async () => {
+  $("calBtn").disabled = true;
+  const r = await FaceRemote.calibrate((phase, text) => ($("status").textContent = text));
+  log(r.ok ? `calibrated · baseline ${r.baseline.toFixed(2)} · threshold ${r.threshold}` : "calibration incomplete; kept the default threshold");
+  $("calBtn").disabled = false;
+};
+
+if (location.hash.includes("debug")) {
+  window.__face = FaceRemote; window.__flappy = Flappy;
+  FaceRemote.setHandlers(handlers);
+}
+</script>
+</body>
+</html>
