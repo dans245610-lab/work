@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hand Saber</title>
+<style>
+  :root { --bg: #05060a; --fg: #eef3ff; --muted: #9aa6c0; --accent: #4fc3ff; --line: rgba(160, 200, 255, 0.2); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+  video, canvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  video { transform: scaleX(-1); filter: brightness(0.5) saturate(0.7) contrast(1.1); }
+  #wrap { position: fixed; inset: 0; }
+  button { font: 700 15px system-ui, sans-serif; border-radius: 999px; border: 1px solid var(--line); background: rgba(10, 16, 30, 0.7); color: var(--fg); padding: 10px 16px; cursor: pointer; backdrop-filter: blur(6px); }
+  button.primary { background: var(--accent); color: #001522; border-color: var(--accent); }
+  #hud { position: fixed; top: 12px; left: 16px; right: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; z-index: 3; }
+  #score { font: 900 30px ui-monospace, Menlo, monospace; text-shadow: 0 0 12px rgba(79,195,255,.6); }
+  #combo { color: var(--muted); font-weight: 700; }
+  .spacer { flex: 1; }
+  .swatch { width: 28px; height: 28px; border-radius: 50%; padding: 0; border: 2px solid rgba(255,255,255,.3); }
+  .swatch.on { border-color: #fff; box-shadow: 0 0 10px currentColor; }
+  #intro { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(5, 6, 10, 0.75); }
+  #intro[hidden] { display: none; }
+  .card { width: min(520px, 100%); background: rgba(12, 18, 32, 0.92); border: 1px solid var(--line); border-radius: 18px; padding: 24px; text-align: center; }
+  .card h1 { margin: 0 0 6px; font-size: 34px; letter-spacing: .02em; }
+  .card p { color: var(--muted); line-height: 1.5; }
+  .card ul { text-align: left; color: var(--fg); line-height: 1.6; padding-left: 20px; }
+  #status { color: var(--muted); min-height: 1.4em; }
+  #toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 3; font: 900 26px system-ui; text-shadow: 0 0 14px rgba(0,0,0,.8); pointer-events: none; opacity: 0; transition: opacity .2s; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <video id="video" playsinline muted></video>
+  <canvas id="fx"></canvas>
+</div>
+<div id="hud" hidden>
+  <div><div id="score">0</div><div id="combo">best 0</div></div>
+  <div class="spacer"></div>
+  <span style="color:var(--muted);font-size:13px">blade</span>
+  <span id="swatches"></span>
+  <button id="fruitBtn">Fruit: on</button>
+</div>
+<div id="toast"></div>
+<div id="intro">
+  <div class="card">
+    <h1>⚔️ Hand Saber</h1>
+    <p>Your camera turns your fists into glowing blades.</p>
+    <ul>
+      <li><b>Make a fist</b> to ignite the blade. <b>Open your hand</b> to put it away.</li>
+      <li><b>Swing</b> through the fruit to slice it. Faster swings = bigger slices.</li>
+      <li>Don't slice the 💣 bombs.</li>
+      <li>Two fists = two blades.</li>
+    </ul>
+    <button class="primary" id="startBtn">Start camera</button>
+    <p id="status"></p>
+  </div>
+</div>
+
+<script type="module">
+import { startCamera, loadHandModel, fitCanvas, detectHands } from "../shared/handcam.js";
+
+const $ = id => document.getElementById(id);
+const video = $("video"), canvas = $("fx"), ctx = canvas.getContext("2d");
+const DEBUG = location.hash.includes("debug");
+const COLORS = { blue: [79, 195, 255], green: [90, 255, 120], red: [255, 60, 70], purple: [190, 100, 255], gold: [255, 200, 70] };
+let colorOrder = ["blue", "red"], fruitOn = true;
+
+// ================================================================ audio
+let AC = null, master = null;
+function initAudio() {
+  if (AC) return;
+  AC = new AudioContext();
+  master = AC.createGain(); master.gain.value = 0.6; master.connect(AC.destination);
+}
+function noise(dur) {
+  const b = AC.createBuffer(1, Math.max(1, Math.floor(AC.sampleRate * dur)), AC.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+// A low hum per blade whose pitch and loudness follow the swing speed.
+function makeHum() {
+  const o1 = AC.createOscillator(), o2 = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+  o1.type = "sawtooth"; o1.frequency.value = 88; o2.type = "sawtooth"; o2.frequency.value = 90.5;
+  f.type = "lowpass"; f.frequency.value = 400; f.Q.value = 6;
+  g.gain.value = 0;
+  o1.connect(f); o2.connect(f); f.connect(g); g.connect(master); o1.start(); o2.start();
+  return { o1, o2, f, g };
+}
+function ignite(up) {
+  const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(up ? 60 : 220, t); o.frequency.exponentialRampToValueAtTime(up ? 220 : 50, t + 0.35);
+  g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1200;
+  o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t + 0.42);
+}
+function whoosh(speed) {
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), t = AC.currentTime;
+  s.buffer = noise(0.3); f.type = "bandpass"; f.Q.value = 1.2;
+  f.frequency.setValueAtTime(500 + speed * 40, t); f.frequency.exponentialRampToValueAtTime(250, t + 0.25);
+  g.gain.setValueAtTime(Math.min(0.35, 0.05 + speed * 0.012), t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t);
+}
+function sliceSound(bomb) {
+  const t = AC.currentTime;
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = noise(bomb ? 0.8 : 0.15); f.type = bomb ? "lowpass" : "highpass"; f.frequency.value = bomb ? 500 : 2500;
+  g.gain.setValueAtTime(bomb ? 0.8 : 0.35, t); g.gain.exponentialRampToValueAtTime(0.001, t + (bomb ? 0.8 : 0.15));
+  s.connect(f); f.connect(g); g.connect(master); s.start(t);
+  const o = AC.createOscillator(), og = AC.createGain();
+  o.frequency.setValueAtTime(bomb ? 120 : 900, t); o.frequency.exponentialRampToValueAtTime(bomb ? 40 : 1800, t + 0.12);
+  og.gain.setValueAtTime(bomb ? 0.5 : 0.08, t); og.gain.exponentialRampToValueAtTime(0.001, t + (bomb ? 0.5 : 0.12));
+  o.connect(og); og.connect(master); o.start(t); o.stop(t + 0.6);
+}
+
+// ================================================================ swords
+// Each tracked hand holds a blade. It comes out of the thumb side of the fist (along the knuckle line,
+// index side), and its on-screen length shrinks when it points toward the camera.
+let swords = [];
+function bladeFrom(h) {
+  const p = h.pts, W = h.world;
+  let ux, uy, len3 = 1;
+  if (W) {
+    // World landmarks are not mirrored; flip x to match the mirrored screen.
+    const dx = -(W[5].x - W[17].x), dy = W[5].y - W[17].y, dz = W[5].z - W[17].z, n = Math.hypot(dx, dy, dz) || 1;
+    ux = dx / n; uy = dy / n; len3 = Math.hypot(ux, uy);
+    const m = len3 || 1; ux /= m; uy /= m;
+  } else {
+    const dx = p[5].x - p[17].x, dy = p[5].y - p[17].y, n = Math.hypot(dx, dy) || 1;
+    ux = dx / n; uy = dy / n;
+  }
+  // Grip: middle of the curled fingers.
+  const gx = (p[5].x + p[9].x + p[13].x + p[17].x + p[6].x + p[10].x) / 6, gy = (p[5].y + p[9].y + p[13].y + p[17].y + p[6].y + p[10].y) / 6;
+  const ext = h.ext ? Math.max(...h.ext) : 1;
+  return { gx, gy, ux, uy, len: h.palm * 4.6 * Math.max(0.25, len3), fist: ext < 1.3, open: ext > 1.55 };
+}
+function updateSwords(hands, t) {
+  const used = new Set(), next = [];
+  for (const h of hands) {
+    const b = bladeFrom(h);
+    let best = null, bd = Infinity;
+    for (const s of swords) { if (used.has(s)) continue; const d = Math.hypot(s.gx - b.gx, s.gy - b.gy); if (d < bd) { bd = d; best = s; } }
+    let s = best && bd < canvas.width * 0.3 ? best : null;
+    if (!s) s = { gx: b.gx, gy: b.gy, ux: b.ux, uy: b.uy, len: b.len, on: 0, lit: false, trail: [], seen: t, color: colorOrder[next.length % colorOrder.length], hum: null, lastWhoosh: 0, speed: 0 };
+    used.add(s);
+    const k = 0.6;
+    s.gx += (b.gx - s.gx) * k; s.gy += (b.gy - s.gy) * k;
+    const ax = s.ux + (b.ux - s.ux) * k, ay = s.uy + (b.uy - s.uy) * k, n = Math.hypot(ax, ay) || 1;
+    s.ux = ax / n; s.uy = ay / n; s.len += (b.len - s.len) * 0.4;
+    if (b.fist && !s.lit) { s.lit = true; if (AC) ignite(true); }
+    if (b.open && s.lit) { s.lit = false; if (AC) ignite(false); }
+    s.seen = t;
+    next.push(s);
+  }
+  for (const s of swords) if (!used.has(s)) { if (t - s.seen < 0.4) next.push(s); else if (s.hum) { s.hum.g.gain.setTargetAtTime(0, AC.currentTime, 0.05); } }
+  swords = next;
+}
+const tipOf = s => ({ x: s.gx + s.ux * s.len * s.on, y: s.gy + s.uy * s.len * s.on });
+const baseOf = s => ({ x: s.gx - s.ux * s.len * 0.08, y: s.gy - s.uy * s.len * 0.08 });
+
+// ================================================================ fruit
+const FRUITS = [["🍉", [255, 70, 90]], ["🍊", [255, 160, 40]], ["🍎", [230, 40, 50]], ["🍍", [255, 220, 60]], ["🍋", [250, 240, 90]], ["🥝", [140, 210, 70]], ["🍑", [255, 170, 130]], ["🍇", [150, 70, 200]]];
+let targets = [], halves = [], parts = [], score = 0, combo = 0, best = 0, nextSpawn = 0, shake = 0, comboT = 0;
+function spawn(t) {
+  const W = canvas.width, H = canvas.height, bomb = Math.random() < 0.12;
+  const [e, col] = bomb ? ["💣", [255, 120, 40]] : FRUITS[Math.floor(Math.random() * FRUITS.length)];
+  const x = W * (0.15 + Math.random() * 0.7);
+  targets.push({ e, col, bomb, x, y: H + 60, vx: (W / 2 - x) * (0.3 + Math.random() * 0.4), vy: -H * (1.05 + Math.random() * 0.35), r: Math.min(W, H) * 0.055, rot: 0, vr: (Math.random() - 0.5) * 4, born: t });
+}
+function distToSeg(px, py, a, b) {
+  const vx = b.x - a.x, vy = b.y - a.y, l2 = vx * vx + vy * vy || 1;
+  const k = Math.max(0, Math.min(1, ((px - a.x) * vx + (py - a.y) * vy) / l2));
+  return Math.hypot(px - (a.x + vx * k), py - (a.y + vy * k));
+}
+function slice(tg, s, speed) {
+  const angle = Math.atan2(s.vTip.y, s.vTip.x);
+  for (const side of [-1, 1]) halves.push({ e: tg.e, x: tg.x, y: tg.y, r: tg.r, rot: tg.rot, angle, side, vx: tg.vx * 0.3 + Math.cos(angle + side * Math.PI / 2) * tg.r * 4, vy: tg.vy * 0.2 + Math.sin(angle + side * Math.PI / 2) * tg.r * 4, vr: side * 3, t: 0 });
+  const n = tg.bomb ? 70 : 34;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = tg.r * (2 + Math.random() * (tg.bomb ? 12 : 6));
+    parts.push({ x: tg.x, y: tg.y, vx: Math.cos(a) * sp + s.vTip.x * 0.15, vy: Math.sin(a) * sp + s.vTip.y * 0.15, r: tg.r * (0.05 + Math.random() * 0.12), col: tg.col, t: 0, life: 0.6 + Math.random() * 0.5 });
+  }
+  if (tg.bomb) {
+    shake = 0.5; combo = 0; score = Math.max(0, score - 50);
+    toast("💥 BOOM", "#ff8a5c");
+  } else {
+    combo++; comboT = performance.now() / 1000;
+    const pts = 10 + Math.min(40, Math.round(speed)) + (combo > 2 ? combo * 2 : 0);
+    score += pts; best = Math.max(best, combo);
+    if (combo >= 3 && combo % 3 === 0) toast(`${combo} combo!`, `rgb(${COLORS[s.color].join(",")})`);
+  }
+  if (AC) sliceSound(tg.bomb);
+  $("score").textContent = score; $("combo").textContent = `combo ${combo} · best ${best}`;
+}
+let toastT = 0;
+function toast(text, color) { const el = $("toast"); el.textContent = text; el.style.color = color; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 700); }
+
+// ================================================================ loop
+let landmarker = null, lastFrame = performance.now(), fake = null;
+function frame(ms) {
+  fitCanvas(canvas);
+  const t = ms / 1000, dt = Math.min((ms - lastFrame) / 1000, 0.05), W = canvas.width, H = canvas.height, dpr = Math.min(devicePixelRatio || 1, 2);
+  lastFrame = ms;
+  const hands = fake || (landmarker && detectHands(landmarker, video, canvas, ms));
+  if (hands) { updateSwords(hands, t); fake = null; }
+
+  for (const s of swords) {
+    s.on += ((s.lit ? 1 : 0) - s.on) * Math.min(1, dt * 9);
+    const tip = tipOf(s);
+    s.vTip = s.lastTip ? { x: (tip.x - s.lastTip.x) / Math.max(dt, 1e-3), y: (tip.y - s.lastTip.y) / Math.max(dt, 1e-3) } : { x: 0, y: 0 };
+    const speed = Math.hypot(s.vTip.x, s.vTip.y) / (s.len / 4.6 || 1);   // in hand-lengths per second
+    s.speed = s.speed * 0.7 + speed * 0.3;
+    if (AC && s.on > 0.5) {
+      if (!s.hum) s.hum = makeHum();
+      s.hum.g.gain.setTargetAtTime(0.05 + Math.min(0.12, s.speed * 0.006), AC.currentTime, 0.05);
+      s.hum.o1.frequency.setTargetAtTime(88 + Math.min(80, s.speed * 3), AC.currentTime, 0.05);
+      s.hum.f.frequency.setTargetAtTime(400 + Math.min(1600, s.speed * 60), AC.currentTime, 0.05);
+      if (s.speed > 9 && t - s.lastWhoosh > 0.25) { s.lastWhoosh = t; whoosh(s.speed); }
+    } else if (s.hum) s.hum.g.gain.setTargetAtTime(0, AC.currentTime, 0.05);
+    s.trail.push({ b: baseOf(s), t: tip, time: t });
+    while (s.trail.length && t - s.trail[0].time > 0.12) s.trail.shift();
+    // Slicing: check the blade now and part-way back to where it was last frame.
+    if (s.on > 0.8 && s.lastTip && speed > 2.5) {
+      const b0 = s.lastBase, b1 = baseOf(s), t0 = s.lastTip, t1 = tip;
+      for (const tg of targets) {
+        if (tg.cut) continue;
+        for (let k = 0; k <= 1; k += 0.25) {
+          const a = { x: b0.x + (b1.x - b0.x) * k, y: b0.y + (b1.y - b0.y) * k }, bb = { x: t0.x + (t1.x - t0.x) * k, y: t0.y + (t1.y - t0.y) * k };
+          if (distToSeg(tg.x, tg.y, a, bb) < tg.r) { tg.cut = true; slice(tg, s, speed); break; }
+        }
+      }
+    }
+    s.lastTip = tip; s.lastBase = baseOf(s);
+  }
+  if (performance.now() / 1000 - comboT > 1.5 && combo) { combo = 0; $("combo").textContent = `combo 0 · best ${best}`; }
+
+  if (fruitOn && t > nextSpawn && swords.length) { spawn(t); if (Math.random() < 0.35) spawn(t); nextSpawn = t + 0.7 + Math.random() * 0.9; }
+  const g = H * 1.15;
+  for (const tg of targets) { tg.vy += g * dt; tg.x += tg.vx * dt; tg.y += tg.vy * dt; tg.rot += tg.vr * dt; }
+  targets = targets.filter(tg => !tg.cut && tg.y < H + 120);
+  for (const h of halves) { h.vy += g * dt; h.x += h.vx * dt; h.y += h.vy * dt; h.rot += h.vr * dt; h.t += dt; }
+  halves = halves.filter(h => h.t < 2 && h.y < H + 150);
+  for (const p of parts) { p.vy += g * 0.6 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.98; p.t += dt; }
+  parts = parts.filter(p => p.t < p.life);
+
+  // ---- draw
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  if (shake > 0) { ctx.translate((Math.random() - 0.5) * shake * 40 * dpr, (Math.random() - 0.5) * shake * 40 * dpr); shake = Math.max(0, shake - dt); }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const tg of targets) {
+    ctx.save(); ctx.translate(tg.x, tg.y); ctx.rotate(tg.rot);
+    ctx.font = `${Math.round(tg.r * 2)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.fillText(tg.e, 0, 0); ctx.restore();
+  }
+  for (const h of halves) {
+    ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(h.angle);
+    ctx.beginPath(); ctx.rect(-h.r * 2, h.side < 0 ? -h.r * 2 : 0, h.r * 4, h.r * 2); ctx.clip();
+    ctx.rotate(h.rot - h.angle); ctx.globalAlpha = Math.min(1, 2 - h.t);
+    ctx.font = `${Math.round(h.r * 2)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.fillText(h.e, 0, 0); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+  for (const p of parts) {
+    ctx.globalAlpha = 1 - p.t / p.life; ctx.fillStyle = `rgb(${p.col.join(",")})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for (const s of swords) drawSword(s, dpr, t);
+  requestAnimationFrame(frame);
+}
+
+function drawSword(s, dpr, t) {
+  const [r, g, b] = COLORS[s.color], base = baseOf(s), tip = tipOf(s);
+  // Hilt.
+  const hx = -s.ux * s.len * 0.2, hy = -s.uy * s.len * 0.2;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#2b2f38"; ctx.lineWidth = 14 * dpr;
+  ctx.beginPath(); ctx.moveTo(base.x + hx, base.y + hy); ctx.lineTo(base.x + s.ux * 6 * dpr, base.y + s.uy * 6 * dpr); ctx.stroke();
+  ctx.strokeStyle = "#a9b2c3"; ctx.lineWidth = 4 * dpr;
+  for (const k of [0.25, 0.5, 0.75]) { const x = base.x + hx * k, y = base.y + hy * k; ctx.beginPath(); ctx.moveTo(x - s.uy * 7 * dpr, y + s.ux * 7 * dpr); ctx.lineTo(x + s.uy * 7 * dpr, y - s.ux * 7 * dpr); ctx.stroke(); }
+  if (s.on < 0.02) return;
+  // Swing trail.
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 1; i < s.trail.length; i++) {
+    const a = s.trail[i - 1], c = s.trail[i], k = i / s.trail.length;
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.18 * k * s.on})`;
+    ctx.beginPath(); ctx.moveTo(a.b.x, a.b.y); ctx.lineTo(a.t.x, a.t.y); ctx.lineTo(c.t.x, c.t.y); ctx.lineTo(c.b.x, c.b.y); ctx.closePath(); ctx.fill();
+  }
+  // Blade: wide soft glow, colored body, white-hot core.
+  const flick = 1 + Math.sin(t * 60) * 0.03;
+  for (const [w, a, col] of [[34, 0.12, `${r},${g},${b}`], [18, 0.35, `${r},${g},${b}`], [9, 0.9, `${Math.min(255, r + 120)},${Math.min(255, g + 120)},${Math.min(255, b + 120)}`], [4, 1, "255,255,255"]]) {
+    ctx.strokeStyle = `rgba(${col},${a})`; ctx.lineWidth = w * dpr * flick;
+    ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
+  }
+  // Tip glow.
+  const gr = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 26 * dpr);
+  gr.addColorStop(0, `rgba(255,255,255,${0.6 * s.on})`); gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(tip.x, tip.y, 26 * dpr, 0, 7); ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+}
+
+// ================================================================ ui
+function renderSwatches() {
+  const box = $("swatches"); box.innerHTML = "";
+  for (const [name, [r, g, b]] of Object.entries(COLORS)) {
+    const el = document.createElement("button");
+    el.className = "swatch" + (colorOrder[0] === name ? " on" : ""); el.title = name; el.setAttribute("aria-label", `${name} blade`);
+    el.style.background = `rgb(${r},${g},${b})`; el.style.color = `rgb(${r},${g},${b})`;
+    el.onclick = () => { colorOrder = [name, colorOrder[0] === name ? colorOrder[1] : colorOrder[0]]; swords.forEach((s, i) => (s.color = colorOrder[i % 2])); renderSwatches(); };
+    box.appendChild(el);
+  }
+}
+renderSwatches();
+$("fruitBtn").onclick = () => { fruitOn = !fruitOn; $("fruitBtn").textContent = `Fruit: ${fruitOn ? "on" : "off"}`; if (!fruitOn) targets = []; };
+$("startBtn").onclick = async () => {
+  $("startBtn").disabled = true;
+  initAudio();
+  $("status").textContent = "Starting camera…";
+  try { await startCamera(video); }
+  catch (e) { $("status").textContent = "Camera unavailable: " + e.message; $("startBtn").disabled = false; return; }
+  $("status").textContent = "Loading hand tracker…";
+  landmarker = await loadHandModel(2);
+  $("intro").hidden = true; $("hud").hidden = false;
+  requestAnimationFrame(frame);
+};
+if (DEBUG) {
+  window.__feed = h => { fake = h; };
+  window.__boot = () => { initAudio(); $("intro").hidden = true; $("hud").hidden = false; requestAnimationFrame(frame); };
+  window.__state = () => ({ score, swords: swords.map(s => ({ on: s.on, len: s.len, ux: s.ux, uy: s.uy })), targets: targets.length });
+  window.__spawnAt = (x, y) => targets.push({ e: "🍉", col: [255, 70, 90], bomb: false, x, y, vx: 0, vy: 0, r: 50, rot: 0, vr: 0, born: 0 });
+}
+</script>
+</body>
+</html>

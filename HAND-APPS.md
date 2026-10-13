@@ -8,7 +8,7 @@ All run in the browser with the webcam and MediaPipe hand tracking. Open any `in
 | Air Guitar Hero | `air-guitar/` | Chord shapes with one hand, strum with the other; scored note highway | Fun build |
 | Maestro | `conductor/` | Learn 2/4, 3/4, 4/4 conducting patterns; graded lessons; orchestra follows your beats | Fun build |
 | Little Hands | `little-hands/` | Baby-sign practice (20 ASL signs), private, offline, production-ready | **Release candidate** |
-| Hand Saber | `sword/` | Fist ignites a glowing blade; slice tossed fruit, dodge bombs, dual wield | Fun build |
+| Hand Saber 3D | `sword/` | 3D light sabers from your fists (true 3D orientation + depth, smoothed); slice 3D fruit, blade clashes; original 2D at `sword/2d.html` | Fun build |
 | Rune Caster | `runes/` | Draw runes in the air to cast spells; blast rune-wearing ghosts | Fun build |
 
 ## Ideas parked for later
