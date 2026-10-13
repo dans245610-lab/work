@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rune Caster</title>
+<style>
+  :root { --bg: #07050d; --fg: #f1eaff; --muted: #a99cc8; --accent: #b98cff; --gold: #ffd36b; --line: rgba(200, 170, 255, 0.22); --panel: rgba(16, 11, 30, 0.9); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: Georgia, "Iowan Old Style", serif; overflow: hidden; }
+  video, canvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  video { transform: scaleX(-1); filter: brightness(0.45) saturate(0.6) hue-rotate(-15deg); }
+  button { font: 700 15px system-ui, sans-serif; border-radius: 999px; border: 1px solid var(--line); background: rgba(16, 11, 30, 0.75); color: var(--fg); padding: 10px 16px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #12061f; }
+  button.sel { border-color: var(--gold); color: var(--gold); }
+  #hud { position: fixed; top: 12px; left: 16px; right: 16px; display: flex; gap: 12px; align-items: center; z-index: 3; flex-wrap: wrap; }
+  #score { font: 700 28px Georgia, serif; color: var(--gold); text-shadow: 0 0 12px rgba(255, 211, 107, .5); }
+  #hearts { font-size: 20px; letter-spacing: 2px; }
+  .spacer { flex: 1; }
+  #book { position: fixed; right: 16px; top: 64px; z-index: 3; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: grid; grid-template-columns: repeat(2, 92px); gap: 6px; }
+  .rune { text-align: center; font: 600 12px system-ui; color: var(--muted); border-radius: 10px; padding: 4px; }
+  .rune svg { width: 60px; height: 60px; display: block; margin: 0 auto; }
+  .rune b { display: block; color: var(--fg); font: 700 13px Georgia, serif; }
+  .rune.flash { background: rgba(255, 211, 107, .18); }
+  #cast { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 3; font: 700 40px Georgia, serif; text-shadow: 0 0 20px currentColor; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
+  #cast.show { opacity: 1; }
+  #intro { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(7, 5, 13, 0.82); overflow-y: auto; }
+  #intro[hidden] { display: none; }
+  .card { width: min(600px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 24px; }
+  .card h1 { margin: 0 0 6px; font-size: 36px; text-align: center; }
+  .card p, .card li { color: var(--muted); line-height: 1.55; font-family: system-ui, sans-serif; font-size: 15px; }
+  .card li b { color: var(--fg); }
+  .card .runes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+  #status { color: var(--muted); text-align: center; min-height: 1.4em; font-family: system-ui; }
+  #over { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; background: rgba(7, 5, 13, .7); }
+  #over[hidden] { display: none; }
+  @media (max-width: 640px) { #book { grid-template-columns: repeat(3, 70px); top: auto; bottom: 12px; right: 50%; transform: translateX(50%); } .rune svg { width: 40px; height: 40px; } }
+</style>
+</head>
+<body>
+<video id="video" playsinline muted></video>
+<canvas id="fx"></canvas>
+<div id="hud" hidden>
+  <div id="score">0</div><div id="hearts"></div>
+  <div class="spacer"></div>
+  <button id="modeBtn">Mode: Ghosts</button>
+</div>
+<div id="book" hidden></div>
+<div id="cast"></div>
+<div id="over" hidden><div class="card" style="text-align:center"><h1 id="overTitle">The ghosts got through</h1><p id="overTxt"></p><div class="row"><button class="primary" id="againBtn">Play again</button><button id="freeBtn2">Free casting</button></div></div></div>
+<div id="intro">
+  <div class="card">
+    <h1>🪄 Rune Caster</h1>
+    <p style="text-align:center">Draw runes in the air with your finger to cast spells.</p>
+    <ul>
+      <li><b>Point your index finger</b> (other fingers curled) to start drawing. A glowing trail follows your fingertip.</li>
+      <li><b>Open your hand</b> (or stop pointing) to cast the rune you drew.</li>
+      <li><b>Ghosts</b> drift down wearing runes. Cast a rune to blast every ghost wearing it. Three ghosts get past and it's over.</li>
+      <li>Draw big, about a hand-length or more, in one smooth stroke.</li>
+    </ul>
+    <div class="runes" id="introRunes"></div>
+    <div class="row"><button class="primary" id="startBtn">Start camera</button></div>
+    <p id="status"></p>
+  </div>
+</div>
+
+<script type="module">
+import { startCamera, loadHandModel, fitCanvas, detectHands } from "../shared/handcam.js";
+
+const $ = id => document.getElementById(id);
+const video = $("video"), canvas = $("fx"), ctx = canvas.getContext("2d");
+const DEBUG = location.hash.includes("debug");
+
+// ================================================================ runes ($1 unistroke recognizer)
+// Wobbrock, Wilson & Li (2007): resample → rotate to indicative angle → scale → translate → compare.
+const N = 64, SIZE = 250, HALF_DIAG = 0.5 * Math.hypot(SIZE, SIZE), PHI = 0.5 * (-1 + Math.sqrt(5));
+const pathLen = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - pts[i].x, p.y - pts[i].y), 0);
+function resample(pts, n = N) {
+  const I = pathLen(pts) / (n - 1), out = [pts[0]], src = pts.map(p => ({ ...p }));
+  let D = 0;
+  for (let i = 1; i < src.length; i++) {
+    const d = Math.hypot(src[i].x - src[i - 1].x, src[i].y - src[i - 1].y);
+    if (D + d >= I && d > 0) {
+      const q = { x: src[i - 1].x + ((I - D) / d) * (src[i].x - src[i - 1].x), y: src[i - 1].y + ((I - D) / d) * (src[i].y - src[i - 1].y) };
+      out.push(q); src.splice(i, 0, q); D = 0;
+    } else D += d;
+  }
+  while (out.length < n) out.push(src[src.length - 1]);
+  return out.slice(0, n);
+}
+const centroid = pts => ({ x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length });
+function rotateBy(pts, a) { const c = centroid(pts), cs = Math.cos(a), sn = Math.sin(a); return pts.map(p => ({ x: (p.x - c.x) * cs - (p.y - c.y) * sn + c.x, y: (p.x - c.x) * sn + (p.y - c.y) * cs + c.y })); }
+function normalize(raw) {
+  let pts = resample(raw);
+  const c = centroid(pts);
+  pts = rotateBy(pts, -Math.atan2(c.y - pts[0].y, c.x - pts[0].x));
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y), w = Math.max(...xs) - Math.min(...xs) || 1, h = Math.max(...ys) - Math.min(...ys) || 1;
+  pts = pts.map(p => ({ x: (p.x * SIZE) / w, y: (p.y * SIZE) / h }));
+  const c2 = centroid(pts);
+  return pts.map(p => ({ x: p.x - c2.x, y: p.y - c2.y }));
+}
+const pathDist = (a, b) => a.reduce((s, p, i) => s + Math.hypot(p.x - b[i].x, p.y - b[i].y), 0) / a.length;
+function distAtBestAngle(pts, T) {
+  let a = -Math.PI / 4, b = Math.PI / 4, x1 = PHI * a + (1 - PHI) * b, x2 = (1 - PHI) * a + PHI * b;
+  let f1 = pathDist(rotateBy(pts, x1), T), f2 = pathDist(rotateBy(pts, x2), T);
+  while (Math.abs(b - a) > 0.035) {
+    if (f1 < f2) { b = x2; x2 = x1; f2 = f1; x1 = PHI * a + (1 - PHI) * b; f1 = pathDist(rotateBy(pts, x1), T); }
+    else { a = x1; x1 = x2; f1 = f2; x2 = (1 - PHI) * a + PHI * b; f2 = pathDist(rotateBy(pts, x2), T); }
+  }
+  return Math.min(f1, f2);
+}
+
+// Rune shapes in a unit box (y down). Each gets templates for both drawing directions and several start points.
+const shape = {
+  circle: Array.from({ length: 33 }, (_, i) => ({ x: 0.5 + 0.5 * Math.sin((i / 32) * Math.PI * 2), y: 0.5 - 0.5 * Math.cos((i / 32) * Math.PI * 2) })),
+  triangle: [{ x: 0.5, y: 0 }, { x: 1, y: 0.9 }, { x: 0, y: 0.9 }, { x: 0.5, y: 0 }],
+  square: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: 0, y: 0 }],
+  zigzag: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }],
+  star: [0, 2, 4, 1, 3, 0].map(k => ({ x: 0.5 + 0.5 * Math.sin((k * 2 * Math.PI) / 5), y: 0.53 - 0.5 * Math.cos((k * 2 * Math.PI) / 5) })),
+  spiral: Array.from({ length: 60 }, (_, i) => { const t = i / 59, a = t * Math.PI * 4, r = 0.5 * (1 - t * 0.85); return { x: 0.5 + r * Math.sin(a), y: 0.5 - r * Math.cos(a) }; }),
+};
+const closed = { circle: true, triangle: true, square: true, star: true };
+function variants(name, P) {
+  const out = [P, [...P].reverse()];
+  if (closed[name]) {   // closed shapes can start at any corner
+    const core = P.slice(0, -1), k = name === "circle" ? 8 : core.length;
+    for (let s = 1; s < k; s++) {
+      const off = Math.round((s * core.length) / k), r = [...core.slice(off), ...core.slice(0, off), core[off]];
+      out.push(r, [...r].reverse());
+    }
+  }
+  if (name === "zigzag") out.push(P.map(p => ({ x: 1 - p.x, y: p.y })), P.map(p => ({ x: 1 - p.x, y: p.y })).reverse());
+  return out;
+}
+const TEMPLATES = [];
+for (const [name, P] of Object.entries(shape)) for (const v of variants(name, P)) TEMPLATES.push({ name, pts: normalize(v.map(p => ({ x: p.x * 100, y: p.y * 100 }))) });
+// Sharp corners along the stroke (not counting its two ends). $1 alone mixes up triangles and squares,
+// so the corner count nudges the score toward shapes with the right number of corners.
+function corners(stroke) {
+  const P = resample(stroke, 64), k = 4, ang = [];
+  for (let i = 0; i < P.length; i++) {
+    if (i < k || i >= P.length - k) { ang.push(0); continue; }
+    const a1 = Math.atan2(P[i].y - P[i - k].y, P[i].x - P[i - k].x), a2 = Math.atan2(P[i + k].y - P[i].y, P[i + k].x - P[i].x);
+    let d = Math.abs(a2 - a1); if (d > Math.PI) d = 2 * Math.PI - d;
+    ang.push(d);
+  }
+  let n = 0;
+  for (let i = k; i < P.length - k; i++) {
+    if (ang[i] < 0.95) continue;   // ~55°
+    let peak = true;
+    for (let j = i - 3; j <= i + 3; j++) if (j !== i && ang[j] > ang[i]) peak = false;
+    if (peak) { n++; i += 3; }
+  }
+  return n;
+}
+const CORNERS = { circle: [0, 1], spiral: [0, 12], triangle: [2, 3], square: [3, 4], star: [4, 6], zigzag: [1, 3] };
+function recognize(stroke) {
+  if (stroke.length < 8) return null;
+  const pts = normalize(stroke), c = corners(stroke);
+  const best = {};
+  for (const T of TEMPLATES) { const d = distAtBestAngle(pts, T.pts); if (!(T.name in best) || d < best[T.name]) best[T.name] = d; }
+  const ranked = Object.entries(best).map(([name, d]) => {
+    const [lo, hi] = CORNERS[name], off = c < lo ? lo - c : c > hi ? c - hi : 0;
+    return { name, score: 1 - d / HALF_DIAG - 0.06 * off };
+  }).sort((a, b) => b.score - a.score);
+  return { ...ranked[0], second: ranked[1], corners: c };
+}
+
+const SPELLS = {
+  triangle: { name: "Fire", emoji: "🔥", color: [255, 120, 40] },
+  zigzag: { name: "Lightning", emoji: "⚡", color: [150, 180, 255] },
+  circle: { name: "Shield", emoji: "🛡", color: [255, 211, 107] },
+  square: { name: "Frost", emoji: "❄️", color: [120, 220, 255] },
+  star: { name: "Starfall", emoji: "✨", color: [255, 240, 150] },
+  spiral: { name: "Vortex", emoji: "🌀", color: [190, 110, 255] },
+};
+function runeSVG(name, size = 60, color = "#ffd36b") {
+  const d = shape[name].map((p, i) => `${i ? "L" : "M"}${(10 + p.x * 80).toFixed(1)},${(10 + p.y * 80).toFixed(1)}`).join(" ");
+  const s0 = shape[name][0];
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true"><path d="${d}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${10 + s0.x * 80}" cy="${10 + s0.y * 80}" r="6" fill="${color}"/></svg>`;
+}
+for (const [box, size] of [["book", 60], ["introRunes", 64]]) {
+  for (const [k, s] of Object.entries(SPELLS)) {
+    const el = document.createElement("div"); el.className = "rune"; el.id = box === "book" ? `rune-${k}` : "";
+    el.innerHTML = `${runeSVG(k, size, `rgb(${s.color.join(",")})`)}<b>${s.emoji} ${s.name}</b>`;
+    $(box).appendChild(el);
+  }
+}
+
+// ================================================================ audio
+let AC = null, master = null;
+function initAudio() { if (AC) return; AC = new AudioContext(); master = AC.createGain(); master.gain.value = 0.6; master.connect(AC.destination); }
+function tone(f0, f1, dur, type = "sine", vol = 0.2) {
+  if (!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+}
+function noiseBurst(dur, freq, vol = 0.4, type = "lowpass") {
+  if (!AC) return;
+  const b = AC.createBuffer(1, Math.floor(AC.sampleRate * dur), AC.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), t = AC.currentTime;
+  s.buffer = b; f.type = type; f.frequency.value = freq; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t);
+}
+const SOUND = {
+  triangle: () => { noiseBurst(0.6, 900, 0.5); tone(200, 60, 0.5, "sawtooth", 0.15); },
+  zigzag: () => { noiseBurst(0.35, 4000, 0.5, "highpass"); tone(1200, 80, 0.3, "square", 0.08); },
+  circle: () => [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, f, 0.6, "triangle", 0.12), i * 70)),
+  square: () => { [1568, 2093, 2637].forEach((f, i) => setTimeout(() => tone(f, f * 0.98, 0.4, "sine", 0.08), i * 50)); noiseBurst(0.3, 6000, 0.2, "highpass"); },
+  star: () => [880, 1175, 1397, 1760, 2349].forEach((f, i) => setTimeout(() => tone(f, f, 0.5, "triangle", 0.08), i * 60)),
+  spiral: () => { tone(120, 600, 0.8, "sawtooth", 0.1); noiseBurst(0.8, 500, 0.25); },
+  fizzle: () => { tone(300, 120, 0.25, "triangle", 0.1); },
+};
+
+// ================================================================ game state
+let landmarker = null, mode = "ghosts", score = 0, hearts = 3, over = false;
+let stroke = [], drawing = false, notPointingSince = 0, tip = null, lastTip = null;
+let ghosts = [], parts = [], bolts = [], rings = [], projectiles = [], nextGhost = 0, level = 1, shieldUntil = 0, flash = 0, fake = null;
+
+function newGame() {
+  score = 0; hearts = 3; over = false; ghosts = []; level = 1; nextGhost = 0; shieldUntil = 0;
+  $("over").hidden = true; updateHud();
+}
+function updateHud() {
+  $("score").textContent = mode === "ghosts" ? score : "Free casting";
+  $("hearts").textContent = mode === "ghosts" ? "❤️".repeat(hearts) + "🖤".repeat(3 - hearts) : "";
+  $("modeBtn").textContent = `Mode: ${mode === "ghosts" ? "Ghosts" : "Free casting"}`;
+}
+function spawnGhost(t) {
+  const W = canvas.width, keys = Object.keys(SPELLS), n = Math.min(keys.length, 2 + Math.floor(level / 2));
+  const rune = keys[Math.floor(Math.random() * n)];
+  ghosts.push({ rune, x: W * (0.12 + Math.random() * 0.62), y: -60, vy: canvas.height * (0.045 + level * 0.008), wob: Math.random() * 6, t0: t, r: Math.min(W, canvas.height) * 0.05 });
+}
+
+function castRune(rune, at, t) {
+  const S = SPELLS[rune], col = S.color;
+  const el = $("cast"); el.textContent = `${S.emoji} ${S.name}`; el.style.color = `rgb(${col.join(",")})`; el.classList.add("show");
+  clearTimeout(castRune.t); castRune.t = setTimeout(() => el.classList.remove("show"), 900);
+  document.querySelectorAll(".rune").forEach(r => r.classList.remove("flash")); const bk = $(`rune-${rune}`); if (bk) { bk.classList.add("flash"); setTimeout(() => bk.classList.remove("flash"), 900); }
+  SOUND[rune]();
+  const targets = mode === "ghosts" ? ghosts.filter(g => g.rune === rune && !g.dead) : [];
+  const W = canvas.width, H = canvas.height, R = Math.min(W, H);
+  // Big effect at the hand, plus something that reaches each target.
+  burst(at, col, rune === "square" ? 70 : 50, R * 0.25);
+  rings.push({ x: at.x, y: at.y, r0: R * 0.03, r1: R * (rune === "circle" ? 0.5 : 0.22), col, t: 0, life: rune === "circle" ? 1.0 : 0.5, rune });
+  if (rune === "circle") shieldUntil = t + 5;
+  if (rune === "zigzag") flash = 0.5;
+  if (mode === "free" && !targets.length) {
+    if (rune === "zigzag") for (let i = 0; i < 4; i++) { const a = Math.random() * Math.PI * 2; bolts.push({ pts: jag(at, { x: at.x + Math.cos(a) * R * 0.5, y: at.y + Math.sin(a) * R * 0.5 }), col, t: 0 }); }
+    if (rune === "star") for (let i = 0; i < 14; i++) projectiles.push({ x: Math.random() * W, y: -40 - Math.random() * 200, tx: at.x + (Math.random() - 0.5) * R * 0.6, ty: at.y + (Math.random() - 0.5) * R * 0.3, col, speed: R * 2.2, kind: "star" });
+    if (rune === "triangle") for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + (i - 2.5) * 0.35; projectiles.push({ x: at.x, y: at.y, tx: at.x + Math.cos(a) * R * 0.7, ty: at.y + Math.sin(a) * R * 0.7, col, speed: R * 1.6, kind: "fire" }); }
+    if (rune === "spiral") rings.push({ x: at.x, y: at.y, r0: R * 0.3, r1: R * 0.02, col, t: 0, life: 1.2, rune: "vortex" });
+  }
+  for (const g of targets) {
+    g.dead = true;
+    if (rune === "zigzag") { bolts.push({ pts: jag(at, g), col, t: 0 }); pop(g, col, 0); }
+    else if (rune === "star") projectiles.push({ x: g.x + (Math.random() - 0.5) * 80, y: -40, tx: g.x, ty: g.y, col, speed: R * 2.4, kind: "star", target: g });
+    else if (rune === "triangle") projectiles.push({ x: at.x, y: at.y, tx: g.x, ty: g.y, col, speed: R * 1.8, kind: "fire", target: g });
+    else if (rune === "spiral") { g.sucked = { x: at.x, y: at.y, t: 0 }; }
+    else pop(g, col, rune === "square" ? 0.25 : 0.1);
+  }
+  if (targets.length) { score += targets.length * 10 * (targets.length > 1 ? 2 : 1); updateHud(); }
+}
+function pop(g, col, delay) { g.popAt = performance.now() / 1000 + delay; g.popCol = col; }
+function burst(p, col, n, spread) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, sp = spread * (0.5 + Math.random() * 1.5); parts.push({ x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, col, t: 0, life: 0.5 + Math.random() * 0.6, r: 2 + Math.random() * 5 }); }
+}
+function jag(a, b) {
+  let pts = [[a.x, a.y], [b.x, b.y]];
+  for (let it = 0; it < 5; it++) {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); out.push([(ax + bx) / 2 + (Math.random() - 0.5) * l * 0.35, (ay + by) / 2 + (Math.random() - 0.5) * l * 0.35], pts[i]); }
+    pts = out;
+  }
+  return pts;
+}
+
+// ================================================================ hand → drawing
+// Drawing hand: index finger straight, the others curled ("pointing"). The stroke is cast when you stop pointing.
+function isPointing(h) { const e = h.ext; return e && e[0] > 1.5 && e[1] < 1.45 && e[2] < 1.45 && e[3] < 1.5; }
+function onHands(hands, t) {
+  const h = hands.find(isPointing) || hands[0] || null;
+  const pointing = !!(h && isPointing(h));
+  if (h) {
+    const p = h.pts[8];
+    tip = tip ? { x: tip.x + (p.x - tip.x) * 0.55, y: tip.y + (p.y - tip.y) * 0.55 } : { x: p.x, y: p.y };
+  } else tip = null;
+  if (pointing && tip) {
+    notPointingSince = 0;
+    if (!drawing) { drawing = true; stroke = []; }
+    const last = stroke[stroke.length - 1];
+    if (!last || Math.hypot(tip.x - last.x, tip.y - last.y) > 3) stroke.push({ x: tip.x, y: tip.y, t });
+    while (stroke.length && t - stroke[0].t > 4) stroke.shift();
+  } else if (drawing) {
+    if (!notPointingSince) notPointingSince = t;
+    if (t - notPointingSince > 0.12) { drawing = false; finishStroke(t, h); }
+  }
+}
+function finishStroke(t, h) {
+  const pts = stroke; stroke = [];
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y), span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const minSpan = (h ? h.palm : 80) * 1.2;
+  const at = pts.length ? centroid(pts) : { x: canvas.width / 2, y: canvas.height / 2 };
+  if (pts.length < 10 || span < minSpan) { if (pts.length > 10) fizzle(at, "Draw bigger"); return; }
+  const r = recognize(pts);
+  window.__lastRecognition = r;
+  if (r && r.score > 0.74 && (!r.second || r.score - r.second.score > 0.03)) castRune(r.name, at, t);
+  else fizzle(at, "Fizzle… try again");
+}
+function fizzle(at, text) {
+  SOUND.fizzle(); burst(at, [140, 120, 160], 14, 60);
+  const el = $("cast"); el.textContent = text; el.style.color = "#a99cc8"; el.classList.add("show");
+  clearTimeout(castRune.t); castRune.t = setTimeout(() => el.classList.remove("show"), 700);
+}
+
+// ================================================================ loop
+let lastFrame = performance.now();
+function frame(ms) {
+  fitCanvas(canvas);
+  const t = ms / 1000, dt = Math.min((ms - lastFrame) / 1000, 0.05), W = canvas.width, H = canvas.height, dpr = Math.min(devicePixelRatio || 1, 2);
+  lastFrame = ms;
+  const hands = fake || (landmarker && detectHands(landmarker, video, canvas, ms));
+  if (hands) { onHands(hands, t); fake = null; }
+
+  // Ghosts.
+  if (mode === "ghosts" && !over) {
+    if (t > nextGhost) { spawnGhost(t); nextGhost = t + Math.max(0.9, 3.2 - level * 0.25); }
+    level = 1 + Math.floor(score / 80);
+    for (const g of ghosts) {
+      if (g.sucked) { g.sucked.t += dt; g.x += (g.sucked.x - g.x) * dt * 4; g.y += (g.sucked.y - g.y) * dt * 4; if (g.sucked.t > 0.5 && !g.popAt) pop(g, SPELLS.spiral.color, 0); continue; }
+      if (g.dead && !g.popAt) continue;
+      g.y += g.vy * dt; g.x += Math.sin(t * 1.5 + g.wob) * 20 * dt;
+      if (g.y > H - g.r && !g.dead) {
+        if (t < shieldUntil) { g.y = H - g.r; g.vy = -Math.abs(g.vy) * 2; rings.push({ x: g.x, y: g.y, r0: 10, r1: g.r * 2, col: SPELLS.circle.color, t: 0, life: 0.4 }); setTimeout(() => (g.vy = Math.abs(g.vy) / 2), 400); }
+        else { g.gone = true; hearts--; updateHud(); flash = 0.3; if (hearts <= 0) gameOver(); }
+      }
+    }
+    for (const g of ghosts) if (g.popAt && performance.now() / 1000 >= g.popAt && !g.popped) { g.popped = true; burst(g, g.popCol, 40, g.r * 5); burst(g, [255, 255, 255], 12, g.r * 3); }
+    ghosts = ghosts.filter(g => !g.gone && !g.popped);
+  }
+  // Projectiles (fireballs, falling stars).
+  for (const p of projectiles) {
+    const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.hypot(dx, dy), step = p.speed * dt;
+    if (d <= step) { p.done = true; burst({ x: p.tx, y: p.ty }, p.col, 30, 220); if (p.target) pop(p.target, p.col, 0); continue; }
+    p.x += (dx / d) * step; p.y += (dy / d) * step;
+    parts.push({ x: p.x, y: p.y, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60 + (p.kind === "fire" ? -40 : 0), col: p.col, t: 0, life: 0.35, r: p.kind === "fire" ? 7 : 4 });
+  }
+  projectiles = projectiles.filter(p => !p.done);
+  for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; p.t += dt; }
+  parts = parts.filter(p => p.t < p.life);
+  for (const r of rings) r.t += dt;
+  rings = rings.filter(r => r.t < r.life);
+  for (const b of bolts) b.t += dt;
+  bolts = bolts.filter(b => b.t < 0.35);
+
+  // ---- draw
+  ctx.clearRect(0, 0, W, H);
+  if (t < shieldUntil) {
+    const a = Math.min(1, shieldUntil - t);
+    ctx.strokeStyle = `rgba(255,211,107,${0.35 * a})`; ctx.lineWidth = 6 * dpr; ctx.setLineDash([18 * dpr, 10 * dpr]);
+    ctx.beginPath(); ctx.moveTo(0, H - 6 * dpr); ctx.lineTo(W, H - 6 * dpr); ctx.stroke(); ctx.setLineDash([]);
+  }
+  for (const g of ghosts) drawGhost(g, t, dpr);
+  ctx.globalCompositeOperation = "lighter";
+  for (const r of rings) {
+    const k = r.t / r.life, rad = r.r0 + (r.r1 - r.r0) * (1 - (1 - k) * (1 - k));
+    ctx.strokeStyle = `rgba(${r.col.join(",")},${1 - k})`; ctx.lineWidth = (r.rune === "circle" ? 6 : 4) * dpr;
+    ctx.beginPath(); ctx.arc(r.x, r.y, Math.max(1, rad), 0, 7); ctx.stroke();
+    if (r.rune === "circle" || r.rune === "vortex") {   // runic marks around the ring
+      ctx.fillStyle = `rgba(${r.col.join(",")},${1 - k})`; ctx.font = `${Math.round(14 * dpr)}px serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      const marks = "ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃ";
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2 + r.t * (r.rune === "vortex" ? 6 : 1.5); ctx.fillText(marks[i], r.x + Math.cos(a) * (rad + 14 * dpr), r.y + Math.sin(a) * (rad + 14 * dpr)); }
+    }
+  }
+  for (const b of bolts) {
+    for (const [w, a] of [[10, 0.25], [4, 0.7], [1.5, 1]]) {
+      ctx.strokeStyle = a === 1 ? `rgba(255,255,255,${1 - b.t / 0.35})` : `rgba(${b.col.join(",")},${a * (1 - b.t / 0.35)})`; ctx.lineWidth = w * dpr;
+      ctx.beginPath(); b.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+    }
+  }
+  for (const p of projectiles) {
+    const gr = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 22 * dpr);
+    gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.4, `rgba(${p.col.join(",")},0.8)`); gr.addColorStop(1, `rgba(${p.col.join(",")},0)`);
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(p.x, p.y, 22 * dpr, 0, 7); ctx.fill();
+  }
+  for (const p of parts) { ctx.fillStyle = `rgba(${p.col.join(",")},${1 - p.t / p.life})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * dpr, 0, 7); ctx.fill(); }
+  // The rune being drawn: glowing golden trail, brighter near the fingertip.
+  if (stroke.length > 1) {
+    for (const [w, a] of [[16, 0.15], [7, 0.5], [2.5, 1]]) {
+      ctx.strokeStyle = a === 1 ? "rgba(255,250,230,1)" : `rgba(255,200,90,${a})`; ctx.lineWidth = w * dpr; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.beginPath(); stroke.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
+    }
+  }
+  if (tip) {
+    const r = (drawing ? 16 : 9) * dpr, gr = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, r * 2);
+    gr.addColorStop(0, drawing ? "rgba(255,240,200,1)" : "rgba(200,180,255,0.8)"); gr.addColorStop(1, "rgba(255,200,90,0)");
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(tip.x, tip.y, r * 2, 0, 7); ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  if (flash > 0) { ctx.fillStyle = `rgba(200,210,255,${flash * 0.5})`; ctx.fillRect(0, 0, W, H); flash = Math.max(0, flash - dt * 2); }
+  requestAnimationFrame(frame);
+}
+
+function drawGhost(g, t, dpr) {
+  const bob = Math.sin(t * 3 + g.wob) * 4 * dpr, x = g.x, y = g.y + bob, S = SPELLS[g.rune];
+  ctx.globalAlpha = g.dead ? 0.5 : 0.92;
+  ctx.font = `${Math.round(g.r * 2)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("👻", x, y);
+  // Rune badge above the ghost.
+  const bx = x, by = y - g.r * 1.65, br = g.r * 0.62;
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "rgba(16,11,30,0.85)"; ctx.strokeStyle = `rgb(${S.color.join(",")})`; ctx.lineWidth = 2 * dpr;
+  ctx.beginPath(); ctx.arc(bx, by, br, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = `rgb(${S.color.join(",")})`; ctx.lineWidth = 3 * dpr; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); shape[g.rune].forEach((p, i) => { const px = bx + (p.x - 0.5) * br * 1.25, py = by + (p.y - 0.5) * br * 1.25; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+function gameOver() {
+  over = true;
+  $("overTitle").textContent = "The ghosts got through 👻";
+  $("overTxt").textContent = `Score: ${score}`;
+  $("over").hidden = false;
+}
+
+// ================================================================ ui
+$("modeBtn").onclick = () => { mode = mode === "ghosts" ? "free" : "ghosts"; ghosts = []; newGame(); };
+$("againBtn").onclick = () => newGame();
+$("freeBtn2").onclick = () => { mode = "free"; newGame(); };
+$("startBtn").onclick = async () => {
+  $("startBtn").disabled = true; initAudio();
+  $("status").textContent = "Starting camera…";
+  try { await startCamera(video); }
+  catch (e) { $("status").textContent = "Camera unavailable: " + e.message; $("startBtn").disabled = false; return; }
+  $("status").textContent = "Loading hand tracker…";
+  landmarker = await loadHandModel(2);
+  $("intro").hidden = true; $("hud").hidden = false; $("book").hidden = false;
+  newGame(); requestAnimationFrame(frame);
+};
+if (DEBUG) {
+  window.__test = { recognize, shape, SPELLS, get ghosts() { return ghosts; }, get score() { return score; }, setMode: m => { mode = m; newGame(); }, spawn: rune => { ghosts.push({ rune, x: 300 + ghosts.length * 150, y: 200, vy: 0, wob: 0, t0: 0, r: 40 }); } };
+  window.__feed = h => { fake = h; };
+  window.__boot = () => { initAudio(); $("intro").hidden = true; $("hud").hidden = false; $("book").hidden = false; newGame(); requestAnimationFrame(frame); };
+}
+</script>
+</body>
+</html>
