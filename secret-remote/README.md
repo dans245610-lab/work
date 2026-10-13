@@ -64,13 +64,71 @@ Any https host works too. The MediaPipe runtime (`vendor/mediapipe/`, Apache-2.0
 
 Review Anki flashcards with your hands busy (treadmill desk, kitchen, workshop). Open `anki-clicker.html` and press **Start camera**.
 
-| Gesture | Default action (each one is configurable) |
+There are 28 gestures. Every one can be mapped to Next, Again, Hard, Good, Easy, Undo or Nothing, and there are 4 presets to start from:
+
+| Preset | Mapping |
 |---|---|
-| ✋ Show your palm | Next: shows the answer, or rates Good if the answer is already up |
-| 👍 Thumbs up | Good |
-| 👎 Thumbs down | Again |
-| 🤨 Eyebrow raise | Next |
-| 😉 Double blink / 😮 open mouth | Off by default |
+| **Finger count = rating** (default) | 🖐 open hand → Next · ☝️ 1 / ✌️ 2 / 3 / 4 fingers → Again / Hard / Good / Easy (like Anki's 1–4 keys) · 👈 swipe left → Undo · 🤨 eyebrows → Next · nod → Good · shake → Again |
+| **Thumbs** | 🖐 → Next · 👍 Good · 👎 Again · 👌 Easy · 👈 swipe → Undo · 🤨 → Next |
+| **Face only** (hands full) | 🤨 → Next · nod → Good · shake → Again · 😁 big smile → Easy · 😠 frown → Hard · tilt head left → Undo |
+| **Head only** (works with glasses, masks, beards) | tilt right → Next · nod → Good · shake → Again · tilt left → Undo |
+
+"Next" shows the answer, or rates Good if the answer is already showing. Left and right are always *your* own left and right.
+
+### All the cues
+
+| Group | Cues | How it's detected |
+|---|---|---|
+| **Hand poses** (`hand-poses.js`) | 🖐 open hand · ☝️ 1 · ✌️ 2 · 3 · 4 (thumb tucked) · 👍 · 👎 · 👌 OK · 🤘 rock · 🤙 call me · ✊ fist | Ratios of each fingertip's and knuckle's distance from the wrist (so distance from the camera doesn't matter), plus where the thumb is. A pose must be held **still** for 300 ms, fires once, and re-arms when you drop it. |
+| **Hand motion** | 👈 swipe left · 👉 swipe right | An open hand moves at least 22% of the frame width within 450 ms, mostly sideways. A hand drifting into view doesn't count. |
+| **Face** (`face-remote.js`, MediaPipe blendshapes) | 🤨 eyebrows up · 😠 frown · 😁 big smile (both sides, held 0.4 s) · 😗 pucker · 😮 mouth open · 😏 mouth to the left or right · double blink · eyes shut 1 s · 😉 wink left or right eye | Rising edge plus a hold time on each blendshape score. Winks need one eye shut *and* clearly more shut than the other, held 150 ms, so ordinary blinks never count. |
+| **Head** (face transformation matrix) | nod (yes) · shake (no) · tilt left · tilt right | **Nod:** 2 swings of 7–35° in pitch within 0.9 s. **Shake:** 3 swings of 9° or more in yaw within 1.3 s. Both re-arm only after the head has been still for 0.4 s, so "yes-yes-yes" counts once. **Tilt:** 18° of roll away from your usual resting tilt, held 0.35 s. |
+
+### How each cue was checked
+
+- **Hand poses, against about 9,000 real hand-landmark samples (ASL alphabet photos):**
+
+  | Pose | Detected |
+  |---|---|
+  | 4 fingers | 97% |
+  | 2 | 95–98% |
+  | 3 | 83% (10% read as 2) |
+  | 1 | 68–96% |
+  | OK | 90% |
+  | Call me | 88% |
+  | Fist | 96–100% |
+
+  Cross-confusion is low, and the hold-still rule smooths out single-frame slips.
+- **Open-5 versus 4 fingers:** this hinges on the thumb. The thumb-tip-to-pinky-knuckle distance cleanly separates a tucked thumb (below 0.7 palm-widths) from a thumb that's out (above 1.2).
+- **Hand poses with no real photos (thumbs up/down, rock, open 5):** tested on constructed hands.
+  - 👍 and 👎 fire within about ±40° of vertical.
+  - Real fists rotated in every direction misfire as a thumb pose 0.2–8% of frames, before the hold-still filter.
+- **Face sides:**
+  - Squashing one eye in real photos showed that MediaPipe's `eyeBlinkRight` is the person's own right eye.
+  - Shifting the mouth confirmed `mouthRight` the same way.
+  - Rotating photos 20° moved the measured roll by 18–22°, with the sign confirmed.
+- **Face and head logic:** 27 scripted scenarios, all passing. These include the things that must **not** fire:
+  - Glancing down at a phone.
+  - Looking sideways and back.
+  - Treadmill head bob (3° at 1.8 Hz).
+  - Slowly looking around.
+  - A crooked camera.
+  - A brief tilt.
+  - Normal and lopsided blinks.
+  - A one-sided smirk.
+  - A 0.2 s smile flicker.
+- **End to end:** a real photo of a 4-finger hand fed through a fake camera rated a practice card Easy. Gestures against a fake AnkiConnect server produced the correct Anki calls.
+
+### Options considered and left out
+
+- **Tongue out, cheek puff:** MediaPipe's scores for these barely move on real faces, so they're unreliable.
+- **Eye gaze (look left, right, up):** too noisy, and you look around naturally while reading cards.
+- **Head turn (held yaw):** you turn your head constantly, so it would misfire. Shake covers "no".
+- **Pinch:** looks like the OK sign and a resting hand.
+- **Wave:** overlaps with swipes.
+- **Swipe up or down:** a hand coming up into the frame looks like a swipe up.
+- **Fist:** detected, but off by default, because it's how hands rest.
+- **Smile:** off except in the face preset, because you smile at funny cards. It has to be a big smile on both sides, held for 0.4 s.
 
 - **Practice deck:** the default mode. It's a small built-in Spanish deck that behaves like an Anki review, so you can try the whole flow without Anki installed.
 - **My Anki (AnkiConnect):**
@@ -78,18 +136,10 @@ Review Anki flashcards with your hands busy (treadmill desk, kitchen, workshop).
   2. Press **Connect**. The page calls `requestPermission`, so Anki asks once whether to allow the page.
   3. Pick a deck and press **Start review**. Gestures then call `guiShowAnswer`, `guiAnswerCard` and `guiUndo`. The page mirrors the current card as plain text.
 - **Safety:**
-  - A hand pose must be held for 250 ms, and it fires once. You need to drop your hand before the same pose fires again.
+  - Every gesture fires once per occurrence. A hand pose must be held still for 300 ms, and you need to drop it before it fires again.
   - There's a 350 ms cooldown after each action.
   - Undo is always available: the ↶ button or `U`.
   - The **Watching** switch (`L`) pauses gestures.
-- **Hand poses (`camera-demo/hand-poses.js`):** finger-extension ratios measured from the wrist, so they work at any distance and with either hand.
-  - **Palm:** all four fingers extended.
-  - **Thumbs up/down:** a sideways fist with the thumb out vertically. Requiring the fist to be sideways is what stops an upright fist from counting.
-- **Hand pose results on about 9,000 real hand-landmark samples from an ASL dataset:**
-  - Open palm (ASL "B"): 98% detected.
-  - Other hand shapes counted as a palm: under 3% for most letters. The curved "C" (21%) and "P" (11%) are the exceptions.
-  - Real fists rotated through 360° misfired as thumbs up/down 0.2–8% of frames. That only happens in sideways poses, and the 250 ms hold filters most of it.
-  - There were no real thumbs-up photos in the dataset, so thumbs up/down were tested on a constructed hand shape. That test shows them firing within roughly ±40° of vertical.
 - **Limits:**
   - Anki desktop must be open on the same computer. The phone apps don't run AnkiConnect.
   - Hosted on a website (not `localhost`), Chrome may ask to allow access to devices on your local network. Allow it, or run the page locally.

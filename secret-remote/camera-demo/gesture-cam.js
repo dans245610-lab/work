@@ -1,16 +1,16 @@
-// GestureCam: one camera, two trackers. Hand poses (palm / thumbs up / thumbs down) and face moves
-// (eyebrow raise / double blink / open mouth) come out as named gestures. All on-device.
+// GestureCam: one camera, two trackers. Hand poses and swipes plus face and head moves all come out as
+// named gestures (see hand-poses.js and face-remote.js for the full lists). All on-device.
 //
-//   const cam = await GestureCam.start(videoEl, { onGesture(name), onHandPose(pose|null), onFace(found) })
+//   const cam = await GestureCam.start(videoEl, { onGesture(name), onHandPose(pose|null), onFace(found), onFaceValues(v) })
 //   cam.use.hands = false / cam.use.face = false   // switch a tracker off
 //   await cam.calibrateFace(onStep)                  // eyebrow calibration (see face-remote.js)
 //   cam.stop()
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from "./vendor/mediapipe/vision_bundle.js";
 import { FaceRemote } from "./face-remote.js";
-import { classifyHand, makePoseTrigger } from "./hand-poses.js";
+import { classifyHand, palmCenter, makePoseTrigger, makeSwipeDetector } from "./hand-poses.js";
 
 async function create(Task, fileset, model, extra) {
-  const opts = { baseOptions: { modelAssetPath: new URL(`./models/${model}`, import.meta.url).href, delegate: "GPU" }, runningMode: "VIDEO", ...extra };
+  const opts = { baseOptions: { modelAssetPath: new URL(`./models/${model}`, import.meta.url).href, delegate: "GPU" }, ...extra };
   try { return await Task.createFromOptions(fileset, opts); }
   catch { opts.baseOptions.delegate = "CPU"; return Task.createFromOptions(fileset, opts); }
 }
@@ -21,14 +21,15 @@ async function start(video, h = {}) {
   await video.play();
   const fileset = await FilesetResolver.forVisionTasks(new URL("./vendor/mediapipe/wasm", import.meta.url).href);
   const [face, hands] = await Promise.all([
-    create(FaceLandmarker, fileset, "face_landmarker.task", { numFaces: 1, outputFaceBlendshapes: true }),
-    create(HandLandmarker, fileset, "hand_landmarker.task", { numHands: 2 }),
+    create(FaceLandmarker, fileset, "face_landmarker.task", FaceRemote.LANDMARKER_OPTS),
+    create(HandLandmarker, fileset, "hand_landmarker.task", { runningMode: "VIDEO", numHands: 2 }),
   ]);
   const emit = g => h.onGesture && h.onGesture(g);
-  FaceRemote.setHandlers({ onRaise: () => emit("raise"), onDoubleBlink: () => emit("dblink"), onJaw: () => emit("jaw") });
-  const trigger = makePoseTrigger(emit);
+  FaceRemote.reset();
+  FaceRemote.setHandlers({ onGesture: emit, onFace: f => h.onFace && h.onFace(f), onFrame: v => h.onFaceValues && h.onFaceValues(v) });
+  const trigger = makePoseTrigger(emit), swipe = makeSwipeDetector(emit);
   const use = { hands: true, face: true };
-  let raf = 0, lastT = -1, lastFaceAt = performance.now(), faceShown = null, lastPose;
+  let raf = 0, lastT = -1, lastPose, openAt = -1e9;
 
   function tick() {
     raf = requestAnimationFrame(tick);
@@ -37,17 +38,17 @@ async function start(video, h = {}) {
     const now = performance.now();
     if (use.hands) {
       const r = hands.detectForVideo(video, now), aspect = video.videoWidth / video.videoHeight || 4 / 3;
-      const pose = (r.landmarks || []).map(lm => classifyHand(lm, aspect)).find(Boolean) || null;
-      trigger(pose, now);
+      const found = (r.landmarks || []).map(lm => ({ lm, pose: classifyHand(lm, aspect) }));
+      // Prefer a hand that's making a sign over one that's just resting (fist / unclear).
+      const best = found.find(f => f.pose && f.pose !== "fist") || found.find(f => f.pose) || found[0];
+      const pose = best ? best.pose : null, pos = best ? palmCenter(best.lm) : null;
+      trigger(pose, now, pos);
+      // Swipes only count with an open hand (seen open in the last half second), not a hand drifting into view.
+      if (pose === "palm" || pose === "four") openAt = now;
+      swipe(pos && now - openAt < 500 ? pos : null, now);
       if (pose !== lastPose) { lastPose = pose; h.onHandPose && h.onHandPose(pose); }
     }
-    if (use.face) {
-      const r = face.detectForVideo(video, now);
-      const cats = r.faceBlendshapes && r.faceBlendshapes[0] && r.faceBlendshapes[0].categories;
-      if (cats) { const s = {}; for (const c of cats) s[c.categoryName] = c.score; FaceRemote.feed(s, now); lastFaceAt = now; }
-      const found = !!cats || now - lastFaceAt < FaceRemote.CFG.noFaceMs;
-      if (found !== faceShown) { faceShown = found; h.onFace && h.onFace(found); }
-    }
+    if (use.face) FaceRemote.process(face.detectForVideo(video, now), now);
   }
   tick();
   return {

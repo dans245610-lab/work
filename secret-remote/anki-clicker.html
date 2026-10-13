@@ -35,10 +35,10 @@
   .r1 { background: var(--again); } .r2 { background: var(--hard); } .r3 { background: var(--good); } .r4 { background: var(--easy); }
   #flash { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); background: var(--fg); color: #fff; padding: 8px 16px; border-radius: 99px; font-weight: 600; font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 5; }
   #flash.show { opacity: 1; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; color: var(--muted); transition: background .2s, color .2s; }
-  .chip.hit { background: var(--ok); color: #fff; border-color: var(--ok); }
-  .map { display: grid; grid-template-columns: 1fr 130px; gap: 6px 8px; align-items: center; font-size: 13px; }
+  .map { display: grid; grid-template-columns: 1fr 120px; gap: 5px 8px; align-items: center; font-size: 13px; margin: 6px 0 4px; }
+  #map details { border-top: 1px solid var(--line); padding: 6px 0; }
+  #map summary { font-weight: 600; font-size: 13px; color: var(--fg); }
+  #map select.on { border-color: var(--accent); background: #eef5f8; }
   video { width: 100%; max-width: 320px; border-radius: 10px; transform: scaleX(-1); background: #000; display: block; margin-top: 8px; }
   .pill { font: 12px ui-monospace, Menlo, monospace; background: #efebe4; border-radius: 99px; padding: 3px 9px; }
   .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-top: 12px; font-size: 14px; color: var(--muted); }
@@ -108,18 +108,21 @@
     <div id="camBox" hidden>
       <video id="video" playsinline muted></video>
       <div class="row" style="margin-top:6px">
-        <span class="pill" id="handTxt">hand: –</span><span class="pill" id="faceTxt">face: –</span>
+        <span class="pill" id="handTxt">hand: –</span><span class="pill" id="faceTxt">face: –</span><span class="pill" id="seenTxt">seen: –</span>
         <button id="camCal">Calibrate eyebrows</button>
       </div>
     </div>
     <div class="row" style="margin-top:8px">
       <label class="muted"><input type="checkbox" id="listen" checked> Watching (gestures act on cards)</label>
     </div>
-    <div class="chips" id="chips" style="margin-top:6px" aria-label="Detected gestures"></div>
 
     <h2>Gestures → actions</h2>
-    <div class="map" id="map"></div>
-    <p class="muted" style="margin:6px 0 0"><b>Next ▸</b> shows the answer, or rates Good if the answer is already showing. Hold a hand pose for a moment; it fires once. Drop your hand to do it again. Hand poses work best with your hand about a forearm's length from the camera.</p>
+    <div class="row"><label for="preset" class="muted">Preset</label><select id="preset" style="flex:1"></select></div>
+    <p class="muted" id="presetHelp" style="margin:6px 0"></p>
+    <div id="map"></div>
+    <p class="muted" style="margin:6px 0 0"><b>Next ▸</b> shows the answer, or rates Good if it's already showing.
+      Hold a pose still for a moment; it fires once. Drop your hand (or relax your face) to do it again.
+      Fingers: palm towards the camera, about a forearm away; for 1–4 keep your thumb tucked. "Seen" shows every gesture the camera picks up, even unmapped ones, so you can practise.</p>
 
     <h2>Log</h2>
     <ul id="log"></ul>
@@ -260,26 +263,60 @@ async function perform(action, source) {
 }
 
 /* ============ Gestures → actions (configurable, remembered on this device) ============ */
-const GESTURES = [["palm", "✋ Show palm"], ["thumbUp", "👍 Thumbs up"], ["thumbDown", "👎 Thumbs down"],
-  ["raise", "🤨 Eyebrow raise"], ["dblink", "😉 Double blink"], ["jaw", "😮 Open mouth"]];
-const DEFAULT_MAP = { palm: "next", thumbUp: "rate3", thumbDown: "rate1", raise: "next", dblink: "none", jaw: "none" };
+// [id, icon, label]. Left/right are always the user's own.
+const GROUPS = [
+  ["Hands", [["palm", "🖐", "Open hand (all 5)"], ["one", "☝️", "1 finger"], ["two", "✌️", "2 fingers"], ["three", "3️⃣", "3 fingers"], ["four", "4️⃣", "4 fingers, thumb tucked"],
+    ["thumbUp", "👍", "Thumbs up"], ["thumbDown", "👎", "Thumbs down"], ["ok", "👌", "OK sign"], ["rock", "🤘", "Rock / horns"], ["callme", "🤙", "Call me (thumb + pinky)"],
+    ["fist", "✊", "Fist"], ["swipeLeft", "👈", "Swipe open hand to your left"], ["swipeRight", "👉", "Swipe open hand to your right"]]],
+  ["Face", [["raise", "🤨", "Eyebrows up"], ["frown", "😠", "Frown (brows down)"], ["smile", "😁", "Big smile (hold)"], ["pucker", "😗", "Pucker / kiss"],
+    ["jaw", "😮", "Mouth wide open"], ["mouthLeft", "😏", "Mouth to your left"], ["mouthRight", "😏", "Mouth to your right"],
+    ["dblink", "😑", "Double blink"], ["longBlink", "😌", "Eyes shut 1 second"], ["winkLeft", "😉", "Wink left eye"], ["winkRight", "😉", "Wink right eye"]]],
+  ["Head", [["nod", "↕️", "Nod (yes)"], ["shake", "↔️", "Shake (no)"], ["tiltLeft", "↖️", "Tilt head to your left"], ["tiltRight", "↗️", "Tilt head to your right"]]],
+];
+const GESTURES = GROUPS.flatMap(([, list]) => list);
+const G = Object.fromEntries(GESTURES.map(([id, icon, label]) => [id, { icon, label }]));
+const PRESETS = {
+  count: { name: "Finger count = rating", help: "Hold up 1–4 fingers for Again / Hard / Good / Easy, like Anki's 1–4 keys. Open hand shows the answer, swipe left undoes. Nod / shake also work.",
+    map: { palm: "next", one: "rate1", two: "rate2", three: "rate3", four: "rate4", swipeLeft: "undo", raise: "next", nod: "rate3", shake: "rate1" } },
+  thumbs: { name: "Thumbs", help: "Open hand shows the answer, 👍 Good, 👎 Again, 👌 Easy, swipe left undoes.",
+    map: { palm: "next", thumbUp: "rate3", thumbDown: "rate1", ok: "rate4", swipeLeft: "undo", raise: "next" } },
+  face: { name: "Face only (hands full)", help: "Eyebrows up shows the answer. Nod = Good, shake = Again, big smile = Easy, frown = Hard, tilt your head left to undo.",
+    map: { raise: "next", nod: "rate3", shake: "rate1", smile: "rate4", frown: "rate2", tiltLeft: "undo" } },
+  head: { name: "Head only (no expressions)", help: "Tilt right shows the answer. Nod = Good, shake = Again, tilt left to undo. Works with glasses, masks and beards.",
+    map: { tiltRight: "next", nod: "rate3", shake: "rate1", tiltLeft: "undo" } },
+  custom: { name: "Custom", help: "Your own mapping. Pick a preset to start again from it.", map: null },
+};
 const SHORT = { next: "next", rate1: "Again", rate2: "Hard", rate3: "Good", rate4: "Easy", undo: "undo" };
-function renderLegend() {
-  $("legend").replaceChildren(...GESTURES.filter(([g]) => map[g] !== "none").map(([g, label]) => {
-    const s = document.createElement("span"); s.append(label.split(" ")[0] + " "); const b = document.createElement("b"); b.textContent = SHORT[map[g]]; s.append(b); return s; }));
+const map = {};
+function applyMap(m) { for (const [id] of GESTURES) map[id] = m[id] || "none"; }
+let preset = store.get("preset", "count");
+applyMap(preset === "custom" ? store.get("map", PRESETS.count.map) : (PRESETS[preset] || PRESETS.count).map);
+
+$("preset").replaceChildren(...Object.entries(PRESETS).map(([k, p]) => Object.assign(document.createElement("option"), { value: k, textContent: p.name })));
+const actionOptions = Object.entries(ACTIONS).map(([a, t]) => `<option value="${a}">${t}</option>`).join("");
+$("map").innerHTML = GROUPS.map(([group, list], gi) => `<details><summary>${group} <span class="muted" id="n-${group}"></span></summary><div class="map">` +
+  list.map(([id, icon, label]) => `<label for="m-${id}">${icon} ${label}</label><select id="m-${id}">${actionOptions}</select>`).join("") + `</div></details>`).join("");
+function syncUI() {
+  $("preset").value = preset; $("presetHelp").textContent = PRESETS[preset].help;
+  for (const [id] of GESTURES) { $("m-" + id).value = map[id]; $("m-" + id).classList.toggle("on", map[id] !== "none"); }
+  for (const [group, list] of GROUPS) { const n = list.filter(([id]) => map[id] !== "none").length; $("n-" + group).textContent = n ? `· ${n} on` : ""; }
+  $("legend").replaceChildren(...GESTURES.filter(([id]) => map[id] !== "none").map(([id, icon, label]) => {
+    const sp = document.createElement("span"); sp.title = label; sp.append(icon + " "); const b = document.createElement("b"); b.textContent = SHORT[map[id]]; sp.append(b); return sp; }));
 }
-const map = { ...DEFAULT_MAP, ...store.get("map", {}) };
-$("map").innerHTML = GESTURES.map(([g, label]) => `<label for="m-${g}">${label}</label><select id="m-${g}" data-g="${g}">${Object.entries(ACTIONS).map(([a, t]) => `<option value="${a}">${t}</option>`).join("")}</select>`).join("");
-for (const [g] of GESTURES) { $("m-" + g).value = map[g]; $("m-" + g).onchange = e => { map[g] = e.target.value; store.set("map", map); renderLegend(); }; }
-renderLegend();
-$("chips").innerHTML = GESTURES.map(([g, label]) => `<span class="chip" id="c-${g}">${label}</span>`).join("");
+function openUsedGroups() { document.querySelectorAll("#map details").forEach((d, i) => (d.open = GROUPS[i][1].some(([id]) => map[id] !== "none"))); }
+$("preset").onchange = e => { preset = e.target.value; if (PRESETS[preset].map) applyMap(PRESETS[preset].map); store.set("preset", preset); store.set("map", map); syncUI(); openUsedGroups(); };
+for (const [id] of GESTURES) $("m-" + id).onchange = e => { map[id] = e.target.value; preset = "custom"; store.set("preset", preset); store.set("map", map); syncUI(); };
+syncUI(); openUsedGroups();
 
 const COOLDOWN_MS = 350;   // a gesture right after an action is far more likely a leftover than intent
+let seenT = 0;
 function gesture(g) {
-  const chip = $("c-" + g); chip.classList.add("hit"); setTimeout(() => chip.classList.remove("hit"), 500);
-  if (!$("listen").checked) { log(`${g}: seen, but watching is paused`); return; }
-  if (performance.now() - lastActionAt < COOLDOWN_MS) { log(`${g}: ignored (cooldown)`); return; }
-  perform(map[g], GESTURES.find(x => x[0] === g)[1]);
+  const name = `${G[g].icon} ${G[g].label}`;
+  $("seenTxt").textContent = "seen: " + name; clearTimeout(seenT); seenT = setTimeout(() => ($("seenTxt").textContent = "seen: –"), 2500);
+  if (map[g] === "none") return;
+  if (!$("listen").checked) { log(`${name}: seen, but watching is paused`); return; }
+  if (performance.now() - lastActionAt < COOLDOWN_MS) { log(`${name}: ignored (cooldown)`); return; }
+  perform(map[g], name);
 }
 
 /* ============ Mode switch ============ */
@@ -309,7 +346,6 @@ $("connectBtn").onclick = async () => {
 $("reviewBtn").onclick = async () => { store.set("deck", $("deckSel").value); try { flash(await AnkiBackend.startReview($("deckSel").value)); } catch (e) { flash("⚠ " + e.message); } render(); };
 
 /* ============ Camera: hands + face ============ */
-const POSE_TXT = { palm: "✋ palm", thumbUp: "👍 up", thumbDown: "👎 down" };
 let cam = null;
 $("camBtn").onclick = async () => {
   if (cam) { cam.stop(); cam = null; $("camBox").hidden = true; $("camBtn").textContent = "Start camera"; $("inStatus").textContent = "Camera off."; return; }
@@ -318,12 +354,12 @@ $("camBtn").onclick = async () => {
     const { GestureCam } = await import("./camera-demo/gesture-cam.js");
     cam = await GestureCam.start($("video"), {
       onGesture: gesture,
-      onHandPose: p => ($("handTxt").textContent = "hand: " + (p ? POSE_TXT[p] : "–")),
+      onHandPose: p => ($("handTxt").textContent = "hand: " + (p ? G[p].icon + " " + p : "–")),
       onFace: f => { $("faceTxt").textContent = f ? "face: ✓" : "face: looking…"; },
     });
     cam.use.hands = $("useHands").checked; cam.use.face = $("useFace").checked;
     $("camBox").hidden = false; $("camBtn").textContent = "Stop camera";
-    $("inStatus").textContent = "Camera on. Try ✋ palm or 👍 to test.";
+    $("inStatus").textContent = "Camera on. Try an open hand 🖐 or a nod to test.";
   } catch (e) {
     $("inStatus").textContent = location.protocol === "file:" ? "The camera needs this page served over http(s), not opened as a file. See the README." : `Camera unavailable (${e.name === "NotAllowedError" ? "permission blocked" : e.message || e.name}).`;
   } finally { $("camBtn").disabled = false; }
