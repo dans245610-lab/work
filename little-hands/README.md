@@ -39,6 +39,10 @@ Upload the folder as-is to any static host (Netlify, Cloudflare Pages, GitHub Pa
 - `_headers` adds security headers on Netlify and Cloudflare Pages. On other hosts, the in-page
   Content-Security-Policy still applies; ideally also send `Permissions-Policy: camera=(self)` and
   `X-Content-Type-Options: nosniff`.
+- Quickest: drag the `little-hands` folder onto https://app.netlify.com/drop (or create a Cloudflare Pages
+  project and upload it). You get an https link in about a minute, with `_headers` applied.
+- Don't use "raw file" preview services such as raw.githack: they redirect the model files to a different
+  domain, which the app's privacy policy (correctly) blocks, so the camera check won't load.
 - Total size is about 32 MB, mostly the two models and the WebAssembly runtime (downloaded once, then cached).
 - After changing any file, bump `VERSION` in `sw.js` so returning visitors get the update.
 
