@@ -1,6 +1,9 @@
 // EyeGaze: vertical gaze from a webcam, on-device (MediaPipe Face Landmarker with iris points, bundled locally).
 //
-//   const eyes = await EyeGaze.start(videoEl, { onFrame(features | null) })   // features every camera frame, null = no face
+//   const eyes = await EyeGaze.start(videoEl, { onFrame(features | null), onHands(landmarkLists, aspect, t) })
+//       onFrame: gaze features every camera frame (null = no face). onHands (optional): also run hand tracking on
+//       the same frames and get each hand's 21 landmarks (for hand signs; see hand-poses.js).
+//   eyes.use.hands = false                   // pause hand tracking (saves CPU)
 //   const model = fitGaze(samples)          // samples: [{ f: features, y: 0..1 screen height }] from looking at dots
 //   predict(model, features)                 → 0 (top) … 1 (bottom)
 //   eyes.stop()
@@ -11,7 +14,7 @@
 //   iris   iris centre above/below the line between the eye corners, ÷ eye width (both eyes)
 //   pitch  head pitch (people look partly with their head)
 // Blinks make all eye signals jump, so frames with closed eyes are flagged (features.blink) for the caller to skip.
-import { FilesetResolver, FaceLandmarker } from "./vendor/mediapipe/vision_bundle.js";
+import { FilesetResolver, FaceLandmarker, HandLandmarker } from "./vendor/mediapipe/vision_bundle.js";
 import { FaceRemote } from "./face-remote.js?v=9";
 
 // Landmark indices (MediaPipe 478-point mesh): [corner, corner, iris centre] for each eye.
@@ -89,20 +92,24 @@ async function start(video, h = {}) {
   await video.play();
   const fileset = await FilesetResolver.forVisionTasks(new URL("./vendor/mediapipe/wasm", import.meta.url).href);
   const opts = { baseOptions: { modelAssetPath: new URL("./models/face_landmarker.task", import.meta.url).href, delegate: "GPU" }, ...FaceRemote.LANDMARKER_OPTS };
-  let lm; try { lm = await FaceLandmarker.createFromOptions(fileset, opts); } catch { opts.baseOptions.delegate = "CPU"; lm = await FaceLandmarker.createFromOptions(fileset, opts); }
+  const create = async (Task, o) => { try { return await Task.createFromOptions(fileset, o); } catch { o.baseOptions.delegate = "CPU"; return Task.createFromOptions(fileset, o); } };
+  const lm = await create(FaceLandmarker, opts);
+  const hands = h.onHands ? await create(HandLandmarker, { baseOptions: { modelAssetPath: new URL("./models/hand_landmarker.task", import.meta.url).href, delegate: "GPU" }, runningMode: "VIDEO", numHands: 2 }) : null;
+  const use = { hands: !!hands };
   let raf = 0, lastT = -1;
   function tick() {
     raf = requestAnimationFrame(tick);
     if (video.readyState < 2 || video.currentTime === lastT) return;
     lastT = video.currentTime;
     const now = performance.now(), r = lm.detectForVideo(video, now);
+    if (hands && use.hands) h.onHands((hands.detectForVideo(video, now).landmarks) || [], video.videoWidth / video.videoHeight || 4 / 3, now);
     const L = r.faceLandmarks && r.faceLandmarks[0];
     if (!L || L.length < 478) { h.onFrame && h.onFrame(null, now); return; }
     const blend = {}; for (const c of r.faceBlendshapes[0].categories) blend[c.categoryName] = c.score;
     h.onFrame && h.onFrame(gazeFeatures(L, blend, r.facialTransformationMatrixes && r.facialTransformationMatrixes[0]), now);
   }
   tick();
-  return { stop() { cancelAnimationFrame(raf); stream.getTracks().forEach(t => t.stop()); video.srcObject = null; lm.close(); } };
+  return { use, stop() { cancelAnimationFrame(raf); stream.getTracks().forEach(t => t.stop()); video.srcObject = null; lm.close(); if (hands) hands.close(); } };
 }
 
 export const EyeGaze = { start };

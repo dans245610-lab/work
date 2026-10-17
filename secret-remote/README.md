@@ -67,6 +67,7 @@ Any https host works too. The MediaPipe runtime (`vendor/mediapipe/`, Apache-2.0
 **Modes**
 - **Steer with gaze** (default): the bird glides to the height you're looking at, with no gravity. The pipe gaps are wide, because webcam gaze is coarse. Start by looking at the bird.
 - **Glance to flap:** normal gravity. Flick your eyes up to the shaded top strip to flap. Glances use a faster-reacting signal than steering, so a 150 ms glance still counts.
+- **Hand signs** (same camera; hold the sign still for a moment, and it fires once): ✋ open hand pauses and resumes · 👍 starts or restarts · ✌️ switches mode · 👌 recalibrates. A legend under the game lights up when a sign registers, and a pill shows what the camera sees. Signs are ignored during calibration, and a hand sweeping past doesn't count. Untick **Hand signs** to save CPU.
 - **Fallbacks:** without a camera, Steer follows the mouse and Space flaps. P pauses, R restarts and C recalibrates.
 
 **How it works** (`camera-demo/eye-gaze.js`)
@@ -87,6 +88,11 @@ Any https host works too. The MediaPipe runtime (`vendor/mediapipe/`, Apache-2.0
   - **Glance:** 11 of 11 glances reached the flap zone.
   - Losing the face pauses the game, and its return resumes it.
   - A calibration where the eyes never moved was rejected.
+- **Hand signs:** tested with steady real ✌️ and 👌 hands (ASL photo data) and built ✋ and 👍 hands.
+  - Each sign did its job.
+  - Holding ✋ counted once.
+  - A fist, a sweeping palm, and ✋ shown during calibration were all ignored.
+  - With a real hand photo fed in as the camera, the live hand tracker ran alongside eye tracking.
 - **Real tracking path:** a real portrait video fed in as the camera. The face was found, the signals flowed, and calibration ran and correctly rejected the photo, since a photo's eyes can't move.
 - **Not tested with a live person's eyes.** Webcam gaze is typically ±10–15% of the height. Good front lighting and an arm's-length distance help; glasses glare hurts.
 

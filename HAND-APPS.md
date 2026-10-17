@@ -11,7 +11,7 @@ All run in the browser with the webcam and MediaPipe hand tracking. Open any `in
 | Hand Saber 3D | `sword/` | 3D light sabers from your fists (true 3D orientation + depth, smoothed); slice 3D fruit, blade clashes; original 2D at `sword/2d.html` | Fun build |
 | Rune Caster | `runes/` | Draw runes in the air to cast spells; blast rune-wearing ghosts | Fun build |
 | Secret Remote | `secret-remote/` | Hands-free Flappy: desk taps via the mic (single file) or eyebrow raise / double blink via the camera (face tracking, bundled offline) | Working demo |
-| Flappy Eyes | `secret-remote/camera-demo/flappy-eyes.html` | Webcam eye tracking: steer the bird with your gaze, or glance up to flap; 10 s calibration | Working demo |
+| Flappy Eyes | `secret-remote/camera-demo/flappy-eyes.html` | Webcam eye tracking: steer the bird with your gaze, or glance up to flap; 10 s calibration; hand signs ✋ pause · 👍 start · ✌️ mode · 👌 recalibrate | Working demo |
 | Hands-free Anki clicker | `secret-remote/anki-clicker.html` | 37 cues: hand, face, head and sound (taps, clicks, whistles) (finger count 1–4, thumbs, swipes, nod/shake, tilt, winks, smile…) with presets and per-user calibration, driving Anki reviews via AnkiConnect; built-in practice deck | Working demo |
 
 ## Ideas parked for later

@@ -35,6 +35,10 @@
   .note { background: #fff4e3; border: 1px solid #f0d9b5; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.5; margin: 0 0 8px; }
   kbd { font: 12px ui-monospace, Menlo, monospace; background: #edf0f5; border-radius: 4px; padding: 1px 5px; }
   #quality.good { color: var(--ok); } #quality.poor { color: var(--warn); }
+  .legend { display: flex; justify-content: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .legend span { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 13px; text-align: center; line-height: 1.3; min-width: 92px; transition: background .2s, border-color .2s; }
+  .legend b { font-size: 22px; } .legend small { color: var(--muted); }
+  .legend span.hit { background: #e6f4ec; border-color: var(--ok); }
 </style>
 </head>
 <body>
@@ -44,6 +48,12 @@
     <p class="muted"><b>Steer:</b> the bird flies to where you look. <b>Glance to flap:</b> normal gravity, flick your eyes to the top of the game to flap.
       No camera? <b>Steer</b> follows the mouse; <kbd>Space</kbd> flaps · <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>C</kbd> calibrate.</p>
     <canvas id="game" width="360" height="480" aria-label="Flappy game"></canvas>
+    <div class="legend" id="legend" aria-label="Hand signs">
+      <span><b>✋</b> open hand<br><small>pause / resume</small></span>
+      <span><b>👍</b> thumbs up<br><small>start / restart</small></span>
+      <span><b>✌️</b> peace<br><small>switch mode</small></span>
+      <span><b>👌</b> OK<br><small>recalibrate</small></span>
+    </div>
   </section>
   <aside class="panel">
     <h2>Mode</h2>
@@ -55,7 +65,8 @@
     <div class="row"><button class="primary" id="camBtn">Start camera</button><button id="calBtn" disabled>Calibrate (10 s)</button></div>
     <div id="status" class="muted">Sit about an arm's length from the screen, face lit from the front, head roughly level with the game.</div>
     <div class="row"><video id="video" playsinline muted></video>
-      <div><div class="pill" id="faceTxt">face: –</div><div id="quality" class="muted" style="margin-top:6px"></div></div></div>
+      <div><div class="pill" id="faceTxt">face: –</div><div class="pill" id="handTxt" style="margin-top:4px">hand: –</div><div id="quality" class="muted" style="margin-top:6px"></div></div></div>
+    <label class="muted" style="display:block;margin-top:8px"><input type="checkbox" id="useHands" checked> Hand signs (hold a sign still for a moment; shown under the game)</label>
     <h2>Signals</h2>
     <div class="bars" id="bars"></div>
     <h2>Tips</h2>
@@ -68,7 +79,8 @@
 </main>
 
 <script type="module">
-import { EyeGaze, fitGaze, predict, oneEuro, DEFAULT_MODEL } from "./eye-gaze.js?v=10";
+import { EyeGaze, fitGaze, predict, oneEuro, DEFAULT_MODEL } from "./eye-gaze.js?v=11";
+import { classifyHand, palmCenter, makePoseTrigger } from "./hand-poses.js?v=9";
 
 const $ = id => document.getElementById(id);
 const store = { get(k, d) { try { const v = localStorage.getItem("flappyEyes." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -102,6 +114,26 @@ function setFace(found) {
   haveFace = found;
   $("faceTxt").textContent = found ? "face: ✓" : "face: looking…";
   Game.faceLost(!found);
+}
+
+/* ============ Hand signs: hold a sign still for a moment; it fires once ============ */
+const SIGNS = { palm: { icon: "✋", i: 0 }, thumbUp: { icon: "👍", i: 1 }, two: { icon: "✌️", i: 2 }, ok: { icon: "👌", i: 3 } };
+let lastPose = undefined, flashMsg = "", flashUntil = 0;
+const signTrigger = makePoseTrigger(onSign);
+function onHands(list, aspect, t) {
+  const found = list.map(lm => ({ pose: classifyHand(lm, aspect), pos: palmCenter(lm) }));
+  const best = found.find(f => f.pose && f.pose !== "fist") || found[0] || { pose: null, pos: null };
+  if (best.pose !== lastPose) { lastPose = best.pose; $("handTxt").textContent = "hand: " + (best.pose ? (SIGNS[best.pose] ? SIGNS[best.pose].icon + " " : "") + best.pose : "–"); }
+  signTrigger(best.pose, t, best.pos);
+}
+function onSign(pose) {
+  if (!SIGNS[pose] || calib || !$("useHands").checked) return;
+  const chip = $("legend").children[SIGNS[pose].i]; chip.classList.add("hit"); setTimeout(() => chip.classList.remove("hit"), 600);
+  const say = m => { flashMsg = m; flashUntil = performance.now() + 1200; };
+  if (pose === "palm") { if (Game.paused === "hand") { Game.pause(false); say("✋ resumed"); } else if (!Game.paused) { Game.pause(true, "hand"); say("✋ paused"); } }
+  else if (pose === "thumbUp") { Game.start(); say("👍 go!"); }
+  else if (pose === "two") { Game.setMode(Game.mode === "steer" ? "glance" : "steer"); say(Game.mode === "steer" ? "✌️ steer mode" : "✌️ glance mode"); }
+  else if (pose === "ok") { if (cam) { startCalibration(); } else say("👌 start the camera first"); }
 }
 
 /* ============ Calibration: look at 5 dots ============ */
@@ -166,6 +198,7 @@ const Game = (() => {
       else if (!glanceArmed && fast > REARM) glanceArmed = true;
     }
   }
+  function start() { if (state === "dead") reset(); if (pausedFor === "hand") pause(false); if (state === "ready") state = "play"; }
   function pause(on, why = "paused") { if (on) pausedFor = why; else if (pausedFor) { pausedFor = null; countdownUntil = state === "play" ? performance.now() + 3000 : 0; } }
   function faceLost(lost) { if (!cam) return; if (lost) { if (!pausedFor) pausedFor = "face"; } else if (pausedFor === "face") pause(false); }
   function step(dt, now) {
@@ -203,6 +236,7 @@ const Game = (() => {
     // Where the camera thinks you're looking (right edge), so you can see what it sees.
     if (now - gazeT < 500 && !calib) { const y = Math.max(0, Math.min(1, gazeNow)) * H; g.strokeStyle = "rgba(53,87,196,.9)"; g.lineWidth = 3; g.beginPath(); g.arc(W - 14, y, 8, 0, 7); g.stroke(); g.fillStyle = "rgba(53,87,196,.35)"; g.fillRect(W - 30, y - 1, 10, 2); }
     text(String(score), 58, 40);
+    if (now < flashUntil && !calib) text(flashMsg, 104, 22);
     if (calib) {
       g.fillStyle = "rgba(20,30,50,.55)"; g.fillRect(0, 0, W, H);
       const y = calib.dots[calib.i] * H, pulse = calib.phase === "collect" ? 1 : 0.6 + 0.4 * Math.sin(now / 120);
@@ -210,9 +244,10 @@ const Game = (() => {
       g.fillStyle = "#222"; g.beginPath(); g.arc(W / 2, y, 3, 0, 7); g.fill();
       g.fillStyle = "#fff"; g.font = "13px system-ui"; g.textAlign = "center"; g.fillText(`look at the dot · ${calib.i + 1} / ${calib.dots.length}`, W / 2, y < H / 2 ? y + 36 : y - 26);
     } else if (pausedFor === "face") text("Can't see your face", H / 2 - 40), text("look at the screen to resume", H / 2 - 12, 15);
+    else if (pausedFor === "hand") text("Paused", H / 2 - 40), text("show ✋ again to resume", H / 2 - 12, 15);
     else if (pausedFor) text("Paused", H / 2 - 40);
     else if (now < countdownUntil) text(String(Math.ceil((countdownUntil - now) / 1000)), H / 2 - 30, 48);
-    else if (state === "ready") { text(mode === "steer" ? "Look at the bird to start" : "Glance up to start", H / 2 - 50); if (!cam) text(mode === "steer" ? "(or move the mouse)" : "(or press Space)", H / 2 - 24, 15); }
+    else if (state === "ready") { text(mode === "steer" ? "Look at the bird to start" : "Glance up to start", H / 2 - 50); text(cam ? "or show 👍" : mode === "steer" ? "(or move the mouse)" : "(or press Space)", H / 2 - 24, 15); }
     else if (state === "dead") text(`Game over · best ${best}`, H / 2 - 40), text("next round in a moment…", H / 2 - 12, 15);
   }
   function loop(ms) { const dt = Math.min(0.04, (ms - last) / 1000); last = ms; step(dt, ms); draw(ms); requestAnimationFrame(loop); }
@@ -221,7 +256,7 @@ const Game = (() => {
   cv.addEventListener("pointermove", e => { if (cam || calib) return; const r = cv.getBoundingClientRect(); gaze((e.clientY - r.top) / r.height, performance.now()); if (mode === "steer" && state === "ready") state = "play"; });
   cv.addEventListener("pointerdown", () => flap());
   reset(); setMode(mode); requestAnimationFrame(loop);
-  return { gaze, pause, faceLost, flap, setMode, restart: reset, get flaps() { return flaps; }, get score() { return score; }, get state() { return state; }, get bird() { return bird; }, get mode() { return mode; }, get paused() { return pausedFor; } };
+  return { gaze, pause, faceLost, flap, setMode, start, restart: reset, get flaps() { return flaps; }, get score() { return score; }, get state() { return state; }, get bird() { return bird; }, get mode() { return mode; }, get paused() { return pausedFor; } };
 })();
 
 $("modeSteer").onclick = () => Game.setMode("steer");
@@ -233,11 +268,13 @@ addEventListener("keydown", e => {
   else if ((e.key === "c" || e.key === "C") && cam) startCalibration();
 });
 $("calBtn").onclick = startCalibration;
+$("useHands").onchange = e => { if (cam && cam.use) cam.use.hands = e.target.checked; $("legend").style.opacity = e.target.checked ? 1 : 0.4; if (!e.target.checked) $("handTxt").textContent = "hand: off"; };
 $("camBtn").onclick = async () => {
   if (cam) { cam.stop(); cam = null; $("camBtn").textContent = "Start camera"; $("calBtn").disabled = true; setFace(false); $("faceTxt").textContent = "face: –"; return; }
   $("camBtn").disabled = true; $("status").textContent = "Starting camera and eye tracking…";
   try {
-    cam = await EyeGaze.start($("video"), { onFrame });
+    cam = await EyeGaze.start($("video"), { onFrame, onHands });
+    cam.use.hands = $("useHands").checked;
     $("camBtn").textContent = "Stop camera"; $("calBtn").disabled = false;
     $("status").textContent = model ? "Ready. Look at the bird to start, or recalibrate." : "Camera on. Calibrate first (10 s): follow a dot with your eyes.";
     if (!model) startCalibration();
@@ -249,9 +286,9 @@ $("camBtn").onclick = async () => {
 };
 
 if (location.hash.includes("debug")) window.__eyes = {
-  inject: (f, t = performance.now()) => onFrame(f, t), startCalibration, Game,
+  inject: (f, t = performance.now()) => onFrame(f, t), injectHands: (list, aspect = 4 / 3, t = performance.now()) => onHands(list, aspect, t), startCalibration, Game,
   get model() { return model; }, set model(m) { model = m; }, get gazeY() { return gazeY; }, get calibrating() { return !!calib; },
-  fakeCam(on) { cam = on ? { stop() {} } : null; window.__eyesTest = on; },
+  fakeCam(on) { cam = on ? { stop() {}, use: { hands: true } } : null; window.__eyesTest = on; },
 };
 </script>
 </body>
