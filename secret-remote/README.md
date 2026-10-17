@@ -60,6 +60,36 @@ Any https host works too. The MediaPipe runtime (`vendor/mediapipe/`, Apache-2.0
 - **Debug strip:** live bars for brow, blinkL, blinkR and jaw, each with its threshold mark.
 - **API:** `FaceRemote.init(video, { onRaise, onDoubleBlink, onJaw, onFace, onFrame })`, `calibrate()`, `stop()`, `CFG`. `feed(scores, tMs)` drives the detector from any blend-shape source.
 
+## Flappy with eye control
+
+`camera-demo/flappy-eyes.html` (serve the folder over http/https, like the other camera demos).
+
+**Modes**
+- **Steer with gaze** (default): the bird glides to the height you're looking at, with no gravity. The pipe gaps are wide, because webcam gaze is coarse. Start by looking at the bird.
+- **Glance to flap:** normal gravity. Flick your eyes up to the shaded top strip to flap. Glances use a faster-reacting signal than steering, so a 150 ms glance still counts.
+- **Fallbacks:** without a camera, Steer follows the mouse and Space flaps. P pauses, R restarts and C recalibrates.
+
+**How it works** (`camera-demo/eye-gaze.js`)
+- **Three signals:**
+  - MediaPipe's look-up/look-down blendshapes.
+  - The iris centre above or below the line between the eye corners (from the 478-point face mesh).
+  - Head pitch.
+- **Calibration** (10 s, 5 dots) fits a ridge regression from those signals to screen height, so it learns how much *you* use your eyes versus your head. It then reports its accuracy and that eye/head split. If your eyes barely moved, it refuses to save the result.
+- **Smoothing:** a One Euro filter.
+- **Blinks** are skipped: the last gaze position is held.
+- **Face lost** pauses the game; when your face is back it counts down 3-2-1. A crash restarts by itself after about 2 s, so play is fully hands-free.
+
+**Tested**
+- **Direction check on real photos:** I slid the iris up or down inside the eye opening of real portraits. Both eye signals moved the right way in all three photos, and head pitch stayed flat.
+- **Simulated player, headless browser:**
+  - Calibration error on fresh data was 2–8% of the height.
+  - **Steer:** a bot looking at each gap with ±10% error scored 9 in 20 s with no deaths, across three runs.
+  - **Glance:** 11 of 11 glances reached the flap zone.
+  - Losing the face pauses the game, and its return resumes it.
+  - A calibration where the eyes never moved was rejected.
+- **Real tracking path:** a real portrait video fed in as the camera. The face was found, the signals flowed, and calibration ran and correctly rejected the photo, since a photo's eyes can't move.
+- **Not tested with a live person's eyes.** Webcam gaze is typically ±10–15% of the height. Good front lighting and an arm's-length distance help; glasses glare hurts.
+
 ## Hands-free Anki clicker
 
 Review Anki flashcards with your hands busy (treadmill desk, kitchen, workshop). Open `anki-clicker.html` and press **Start camera**, **Start mic**, or both.
