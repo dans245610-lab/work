@@ -79,7 +79,7 @@
 </main>
 
 <script type="module">
-import { EyeGaze, fitGaze, predict, oneEuro, DEFAULT_MODEL } from "./eye-gaze.js?v=11";
+import { EyeGaze, fitGaze, predict, oneEuro, DEFAULT_MODEL } from "./eye-gaze.js?v=12";
 import { classifyHand, palmCenter, makePoseTrigger } from "./hand-poses.js?v=9";
 
 const $ = id => document.getElementById(id);
@@ -291,7 +291,11 @@ $("camBtn").onclick = async () => {
   $("camBtn").disabled = true; $("status").textContent = "Starting camera and eye tracking…";
   try {
     cam = await EyeGaze.start($("video"), { onFrame, onHands });
-    cam.use.hands = $("useHands").checked;
+    // An old cached eye-gaze.js (from before hand signs) has no `use`: keep the eyes working, explain the hands.
+    const staleHands = !cam.use;
+    if (staleHands) { $("handTxt").textContent = "hand: needs refresh"; $("useHands").checked = false; $("useHands").disabled = true;
+      $("useHands").parentElement.lastChild.textContent = " Hand signs are off: your browser kept an old file. Hard-refresh with Ctrl+Shift+R (Cmd+Shift+R on Mac)."; }
+    else cam.use.hands = $("useHands").checked;
     $("camBtn").textContent = "Stop camera"; $("calBtn").disabled = false;
     $("status").textContent = model ? "Ready. Look at the bird to start, or recalibrate." : "Camera on. Calibrate first (10 s): follow a dot with your eyes.";
     if (!model) startCalibration();
