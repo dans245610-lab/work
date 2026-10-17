@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gesture Control · Settings</title>
+<style>
+  :root { --bg: #eef1f5; --fg: #1f2329; --muted: #6a7280; --accent: #3557c4; --line: #d5dbe5; --card: #fff; --ok: #2f8a5b; --warn: #b45a1c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, sans-serif; }
+  main { max-width: 1060px; margin: 0 auto; padding: 20px 16px 60px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
+  header img { width: 40px; height: 40px; } h1 { font-size: 22px; margin: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { font: 600 14px system-ui, sans-serif; border-radius: 8px; border: 1px solid var(--line); background: #f6f8fb; padding: 8px 12px; cursor: pointer; color: var(--fg); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  select, input[type=number] { font: 14px system-ui; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--fg); }
+  ol.steps { margin: 0; padding-left: 22px; } ol.steps li { margin: 8px 0; }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--warn); font-weight: 600; }
+  .pill { font: 12px ui-monospace, Menlo, monospace; background: #edf0f5; border-radius: 99px; padding: 3px 9px; }
+  video { width: 100%; border-radius: 10px; transform: scaleX(-1); background: #000; aspect-ratio: 4 / 3; }
+  .map { display: grid; grid-template-columns: 1fr 210px; gap: 5px 10px; align-items: center; margin: 6px 0 4px; }
+  details { border-top: 1px solid var(--line); padding: 8px 0; } summary { font-weight: 600; cursor: pointer; }
+  select.on { border-color: var(--accent); background: #eef3fb; }
+  .gbar { position: relative; height: 12px; background: #edf0f5; border-radius: 6px; } .gbar i { position: absolute; top: -3px; width: 4px; height: 18px; background: var(--accent); border-radius: 2px; }
+  .note { background: #fff4e3; border: 1px solid #f0d9b5; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 0 0 8px; }
+  label.check { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  [hidden] { display: none !important; }
+  /* calibration wizard */
+  #wizard { position: fixed; inset: 0; background: rgba(20,24,32,.55); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  #wizard .box { background: #fff; border-radius: 16px; width: min(640px, 94vw); padding: 22px; display: flex; flex-direction: column; gap: 8px; max-height: 92vh; overflow-y: auto; }
+  .cal-icon { font-size: 60px; text-align: center; line-height: 1.1; } .cal-title { font-size: 22px; font-weight: 700; text-align: center; }
+  .cal-say { font-size: 16px; text-align: center; } .cal-phase { text-align: center; font-weight: 700; min-height: 1.4em; } .cal-phase.go { color: var(--ok); }
+  .track { position: relative; height: 10px; background: #edf0f5; border-radius: 99px; overflow: hidden; } .track.tall { height: 16px; border-radius: 6px; }
+  .track .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); } .track .fill.live { background: var(--ok); }
+  .cal-result { min-height: 2.8em; text-align: center; } .cal-result.good { color: var(--ok); } .cal-result.poor { color: var(--warn); }
+  #calReport { list-style: none; padding: 0; margin: 0; font-size: 13px; } #calReport li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  /* gaze calibration (full screen) */
+  #gazeCal { position: fixed; inset: 0; background: #1d2433; z-index: 20; color: #fff; }
+  #gazeDot { position: absolute; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: #fff; transition: top .25s; }
+  #gazeDot.collect { background: #ffd23f; } #gazeMsg { position: absolute; left: 0; right: 0; text-align: center; font-size: 15px; }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="icons/icon128.png" alt=""><div><h1>Gesture Control</h1><div class="muted">Hand signs, face &amp; head moves, eye gaze, desk taps and whistles → Chrome. Everything runs on this device.</div></div></header>
+
+  <div>
+    <section class="card">
+      <h2>Get started</h2>
+      <ol class="steps">
+        <li><button class="primary" id="grantBtn">Allow camera &amp; microphone</button> <span id="grantStatus" class="muted"></span><br>
+          <span class="muted">Chrome asks once for this extension. The microphone is only used if you switch on Sounds.</span></li>
+        <li><label class="check"><input type="checkbox" id="enabled"> <b>Turn Gesture Control on</b></label>
+          <span class="muted">The badge on the toolbar icon shows <b>ON</b>, or <b>II</b> while paused. <b>Alt+Shift+G</b> pauses and resumes from anywhere.</span></li>
+        <li>Pick a preset below, then <b>calibrate</b> (right): about a minute, and it makes everything far more reliable.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>Inputs</h2>
+      <label class="check"><input type="checkbox" id="in-hands"> 🖐 Hand signs and swipes</label>
+      <label class="check"><input type="checkbox" id="in-face"> 🤨 Face and head (eyebrows, smile, winks, nod, shake, tilt…)</label>
+      <label class="check"><input type="checkbox" id="in-gaze"> 👀 Eye gaze scrolling</label>
+      <div style="margin-left:28px" class="muted">
+        <label class="check"><input type="checkbox" id="gz-down"> Look at the bottom of the screen to scroll down</label>
+        <label class="check"><input type="checkbox" id="gz-up"> Look at the top of the screen to scroll up <span>(off by default: you look at tabs up there)</span></label>
+        <div class="row">Speed <input type="range" id="gz-speed" min="150" max="1500" step="50"> <span id="gz-speedTxt"></span></div>
+        <div>Needs the gaze calibration (right) for your screen.</div>
+      </div>
+      <label class="check"><input type="checkbox" id="in-mic"> 👆 Sounds (desk taps, pen click, whistles)</label>
+      <hr style="border:0;border-top:1px solid var(--line)">
+      <div class="row muted">Each scroll gesture moves <select id="scrollAmt"><option value="0.4">40%</option><option value="0.6">60%</option><option value="0.8">80%</option><option value="1">100%</option></select> of the window
+        <label class="check"><input type="checkbox" id="toast"> show a confirmation on the page</label></div>
+    </section>
+
+    <section class="card">
+      <h2>Gestures → actions</h2>
+      <div class="row"><label for="preset">Preset</label><select id="preset" style="flex:1"></select></div>
+      <p class="muted" id="presetHelp"></p>
+      <div id="map"></div>
+      <p class="muted">A hand sign must be held still for a moment and fires once; drop your hand to do it again. Face and head moves fire once per move. Single desk taps wait ~0.6 s to rule out a double tap.</p>
+    </section>
+
+    <section class="card">
+      <h2>Anki desktop (optional)</h2>
+      <p class="muted">For the "Anki:" actions: install the AnkiConnect add-on in Anki desktop (Tools → Add-ons → Get Add-ons, code <code>2055492159</code>), keep Anki open, then connect. Anki asks once to allow this extension.</p>
+      <div class="row"><button id="ankiBtn">Connect to Anki</button><span id="ankiStatus" class="muted"></span></div>
+    </section>
+  </div>
+
+  <aside>
+    <section class="card">
+      <h2>Live preview &amp; calibration</h2>
+      <p class="muted">While this preview runs, gestures don't act on your tabs: try them freely. Close it (or this page) to hand the camera back.</p>
+      <div class="row"><button class="primary" id="liveBtn">Start preview</button><span id="liveStatus" class="muted"></span></div>
+      <div id="liveBox" hidden>
+        <video id="video" playsinline muted style="margin-top:10px"></video>
+        <div class="row" style="margin-top:6px"><span class="pill" id="handTxt">hand: –</span><span class="pill" id="faceTxt">face: –</span></div>
+        <div class="pill" id="seenTxt" style="margin-top:6px;display:inline-block">seen: –</div>
+        <div class="muted" style="margin-top:8px">Where you're looking (top ← → bottom)</div>
+        <div class="gbar"><i id="gazeMark" style="left:50%"></i></div>
+        <div class="row" style="margin-top:12px"><button id="calMine">Calibrate my gestures</button><button id="calAll">All gestures</button></div>
+        <div class="row" style="margin-top:8px"><button id="gazeBtn">Calibrate eye gaze (full screen)</button></div>
+        <div class="row" style="margin-top:8px"><button id="calReset">Reset calibration</button></div>
+      </div>
+      <p class="muted" id="calInfo" style="margin-top:10px"></p>
+    </section>
+    <section class="card">
+      <h2>Privacy &amp; limits</h2>
+      <p class="note">Video and sound are analysed on this device and never recorded or sent anywhere. The only network request is to Anki on <code>127.0.0.1</code>, if you use the Anki actions.</p>
+      <p class="note">Your camera light (and Chrome's mic indicator) stay on while Gesture Control is on. Turn it off from the toolbar popup.</p>
+      <p class="muted">It only acts while a Chrome window is in front, so gestures made while you use other apps are ignored. It can't act on chrome:// pages, the Chrome Web Store or the built-in PDF viewer (tab actions still work there). Key actions send synthetic key presses: apps that listen for keys (slides, AnkiWeb, games) react, but the browser's own built-in key shortcuts don't run.</p>
+    </section>
+  </aside>
+</main>
+
+<div id="wizard" hidden role="dialog" aria-modal="true" aria-live="polite"><div class="box">
+  <div class="row" style="justify-content:space-between"><span class="muted" id="calStepNo"></span>
+    <span class="row"><button id="calSkip">Skip step (S)</button><button id="calStop">Stop (Esc)</button></span></div>
+  <div class="cal-icon" id="calIcon"></div><div class="cal-title" id="calTitle"></div><div class="cal-say" id="calSay"></div>
+  <div class="cal-phase" id="calPhase"></div><div class="track"><div class="fill" id="calProg"></div></div>
+  <div id="calMeterBox"><div class="muted" style="font-size:12px;margin-top:8px">What the camera / mic picks up</div><div class="track tall"><div class="fill live" id="calMeter"></div></div></div>
+  <div class="cal-result" id="calResult"></div>
+  <ul id="calReport" hidden></ul>
+  <div class="row" style="justify-content:center"><button class="primary" id="calDone" hidden>Done</button></div>
+</div></div>
+
+<div id="gazeCal" hidden><div id="gazeDot"></div><div id="gazeMsg"></div></div>
+
+<script type="module" src="options.js"></script>
+</body>
+</html>

@@ -12,6 +12,7 @@ All run in the browser with the webcam and MediaPipe hand tracking. Open any `in
 | Rune Caster | `runes/` | Draw runes in the air to cast spells; blast rune-wearing ghosts | Fun build |
 | Secret Remote | `secret-remote/` | Hands-free Flappy: desk taps via the mic (single file) or eyebrow raise / double blink via the camera (face tracking, bundled offline) | Working demo |
 | Flappy Eyes | `secret-remote/camera-demo/flappy-eyes.html` | Webcam eye tracking: steer the bird with your gaze, or glance up to flap; 10 s calibration; hand signs ✋ pause · 👍 start · ✌️ mode · 👌 recalibrate | Working demo |
+| **Gesture Control (Chrome extension)** | `gesture-extension/` (zip: `dist/gesture-control-extension.zip`) | Everything combined: 37 hand/face/head/sound gestures + gaze scrolling control Chrome (scroll, tabs, video, keys, Anki), presets, calibration, on-device | **Extension** |
 | Hands-free Anki clicker | `secret-remote/anki-clicker.html` | 37 cues: hand, face, head and sound (taps, clicks, whistles) (finger count 1–4, thumbs, swipes, nod/shake, tilt, winks, smile…) with presets and per-user calibration, driving Anki reviews via AnkiConnect; built-in practice deck | Working demo |
 
 ## Ideas parked for later
