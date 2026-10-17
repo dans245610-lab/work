@@ -98,17 +98,34 @@ function showBar(k, v, lo, hi) {
   $("v-" + k).textContent = Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2);
 }
 
+// Blinks: as the lids close, the eye signals read "looking down" for a frame or two *before* the blink score is
+// high, and again while they reopen. So frames are held back 2 frames (≈66 ms): when a blink is seen, the frames
+// leading into it are dropped too, and the gaze is held until 150 ms after the eyes are open again. The blink line
+// adapts to your normal open-eye level (hooded eyes read as half-closed). A short median catches anything left.
+const BLINK_HOLD_MS = 150, LOOKAHEAD = 2;
+let blinkBase = 0.15, blinkUntil = -1e9, pending = [], steerWin = [];
+const median = xs => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 function onFrame(f, t) {
-  if (!f) { if (haveFace && t - faceSeenAt > 700) setFace(false); return; }
+  if (!f) { if (haveFace && t - faceSeenAt > 700) setFace(false); pending = []; return; }
   faceSeenAt = t; if (!haveFace) setFace(true);
   for (const [k, lo, hi] of BARS.slice(0, 3)) showBar(k, f[k], lo, hi);
-  if (f.blink > 0.5) return;                       // eyes shut: every eye signal jumps, so hold the last gaze
+  const line = Math.max(0.4, blinkBase + 0.18);
+  if (f.blink > line) { blinkUntil = t + BLINK_HOLD_MS; pending = []; return; }   // drop the run-up frames too
+  if (f.blink < line - 0.1) blinkBase += 0.02 * (f.blink - blinkBase);            // learn the open-eye level
+  if (t < blinkUntil) return;                                                       // still reopening: hold
+  pending.push([f, t]);
+  if (pending.length <= LOOKAHEAD) return;
+  const [g, tg] = pending.shift();
+  useFrame(g, tg);
+}
+function useFrame(f, t) {
   if (calib) calibFrame(f, t);
-  const raw = predict(model || DEFAULT_MODEL, f);
-  const clamped = Math.max(-0.1, Math.min(1.1, raw));
-  gazeY = smooth(clamped, t);
+  const raw = Math.max(-0.1, Math.min(1.1, predict(model || DEFAULT_MODEL, f)));
+  steerWin.push(raw); if (steerWin.length > 3) steerWin.shift();
+  gazeY = smooth(median(steerWin), t);
   showBar("gaze", gazeY, 0, 1);
-  Game.gaze(gazeY, t, quick(clamped, t));
+  // Glances skip the median: they need speed, and blink leftovers pull the gaze down, never up into the flap zone.
+  Game.gaze(gazeY, t, quick(raw, t));
 }
 function setFace(found) {
   haveFace = found;
@@ -160,7 +177,7 @@ function finishCalibration() {
   if (perDot.filter(n => n >= 8).length < 4) { report(null, "Not enough frames while you looked at the dots (blinking a lot, or the face was lost). Try again with more light."); Game.pause(false); return; }
   const m = fitGaze(s);
   if (m.error > 0.22) { report(m, "Your eyes barely seemed to move between the dots. Try again, and this time also tip your head a little towards each dot."); Game.pause(false); return; }
-  model = m; store.set("model", m); smooth = oneEuro(); quick = oneEuro(5, 2);
+  model = m; store.set("model", m); smooth = oneEuro(); quick = oneEuro(5, 2); steerWin = [];
   report(m, null);
   Game.pause(false);
 }

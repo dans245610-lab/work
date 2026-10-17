@@ -77,7 +77,10 @@ Any https host works too. The MediaPipe runtime (`vendor/mediapipe/`, Apache-2.0
   - Head pitch.
 - **Calibration** (10 s, 5 dots) fits a ridge regression from those signals to screen height, so it learns how much *you* use your eyes versus your head. It then reports its accuracy and that eye/head split. If your eyes barely moved, it refuses to save the result.
 - **Smoothing:** a One Euro filter.
-- **Blinks** are skipped: the last gaze position is held.
+- **Blinks:** as the eyelids close and reopen, the eye signals read "looking down" for a frame or two before the blink score is high. So frames are held back by 2 frames (about 66 ms). When a blink is seen, the frames leading into it are dropped as well, and the gaze is held until 150 ms after the eyes reopen. The blink line adapts to your open-eye level, so hooded eyes are handled. A 3-frame median smooths steering.
+  - Simulated blinks used to jolt the gaze by 18% of the screen; now it's 2%.
+  - The cost: a deliberate look across the screen takes about 0.26 s to register instead of 0.17 s.
+  - Glances skip the median, because blinks only ever pull the gaze down, not up into the flap zone. 20 blinks caused 0 accidental flaps.
 - **Face lost** pauses the game; when your face is back it counts down 3-2-1. A crash restarts by itself after about 2 s, so play is fully hands-free.
 
 **Tested**
