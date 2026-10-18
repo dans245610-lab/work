@@ -108,6 +108,25 @@ section > .wrap > header p{margin:0;color:var(--muted);max-width:72ch}
 .stmt .tags button:focus-visible{outline:2px solid var(--accent)}
 .kindtag{font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 @media (max-width:720px){.stmt{grid-template-columns:1fr}}
+.owngrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:12px}
+.own{background:var(--surface);border:1px solid var(--line);padding:14px 16px;min-width:0}
+.own header{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0}
+.own h3{font-size:1.12rem}
+.own h3 button{all:unset;cursor:pointer;border-bottom:1px dotted var(--muted)}
+.own h3 button:focus-visible{outline:2px solid var(--accent)}
+.own .lst{font-family:var(--font-mono);font-size:.72rem;color:var(--muted)}
+.own .chain{font-size:.86rem;color:var(--muted);margin:4px 0 8px}
+.own table{min-width:0;font-size:.86rem}
+.own td{padding:5px 8px 5px 0;border-bottom:1px solid var(--line)}
+.own td.pct{font-family:var(--font-display);font-stretch:80%;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.own table{width:100%;table-layout:auto}
+.own td{overflow-wrap:anywhere}
+.own td.asof{font-family:var(--font-mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
+.own td button{all:unset;cursor:pointer;color:var(--accent);font-weight:600}
+.own td button:focus-visible{outline:2px solid var(--accent)}
+.own .onote{font-size:.84rem;margin:8px 0 0;color:var(--muted)}
+.own .cases{margin-top:8px;font-family:var(--font-mono);font-size:.72rem;color:var(--muted)}
+@media (max-width:720px){.owngrid{grid-template-columns:1fr}}
 /* counsel desk */
 .findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
 .finding{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--gold);padding:12px 14px;font-size:.92rem}
@@ -243,6 +262,16 @@ footer{padding-block:24px;color:var(--muted);font-size:.82rem;border-top:1px sol
       <p>All ICSID cases registered since 1 Jan 2020 against these states, plus anything still pending. Counsel, tribunal and status come straight from each ICSID case page. Open a case for the claimant, its backers and a timeline.</p>
     </header>
     <div class="docket" id="docket"></div>
+  </div>
+</section>
+
+<section id="owners">
+  <div class="wrap">
+    <header>
+      <h2>Who owns the claimants</h2>
+      <p>The major shareholders and owners behind each claimant, from company filings, stock-exchange notices and fund disclosures. Listed companies show their largest disclosed holders; private and state companies show their owner. "Not disclosed" means no public record was found.</p>
+    </header>
+    <div class="owngrid" id="owngrid"></div>
   </div>
 </section>
 
@@ -408,7 +437,20 @@ const SOURCES = [
  ["Africaguinee, Mamadi Doumbouya orders withdrawal of 'non-compliant' mining permits, May 2025","https://www.africaguinee.com/guinee-mamadi-doumbouya-ordonne-le-retrait-des-permis-miniers-non-conformes/"],
  ["Guinéenews, Why the state withdrew mining permits from a hundred companies, 22 May 2025","https://guineenews.org/2025/05/22/guinee-pourquoi-letat-a-retire-les-permis-miniers-a-une-centaine-de-societes/"],
  ["Africa Briefing, Guinea contests $28.9bn bauxite mining claim","https://africabriefing.com/guinea-contests-28-9bn-bauxite-mining-claim/"],
- ["Guinéenews, Falcon Energy claims $100 million from Guinea at ICSID, 18 Mar 2026","https://guineenews.org/2026/03/18/contentieux-minier-falcon-energy-reclame-100-millions-de-dollars-a-la-guinee-devant-le-cirdi/?amp=1"]
+ ["Guinéenews, Falcon Energy claims $100 million from Guinea at ICSID, 18 Mar 2026","https://guineenews.org/2026/03/18/contentieux-minier-falcon-energy-reclame-100-millions-de-dollars-a-la-guinee-devant-le-cirdi/?amp=1"],
+ ["Arkolith, Who owns Barrick Mining Corp (13F positions, quarter to 30 Jun 2026)","https://arkolith.com/stock/B.md"],
+ ["Blarkad, Barrick Mining shareholders (Vanguard Group Q4 2025 13F)","https://blarkad.com/ticker/B/shareholders"],
+ ["Fintel, Barrick Mining institutional ownership","https://fintel.io/so/us/b"],
+ ["Yahoo Finance, B2Gold (BTO.TO) major holders, as of 30 Jun 2026","https://ca.finance.yahoo.com/quote/BTO.TO/holders/"],
+ ["Market Index, Atomic Eagle (AEU) shareholders and director holdings, 2026","https://www.marketindex.com.au/asx/aeu"],
+ ["Proactive Investors, Atomic Eagle locks in A$10.9M commitment from largest shareholder, Sep 2026","https://www.proactiveinvestors.com/companies/news/1098463/atomic-eagle-locks-in-10-9-million-funding-commitment-from-largest-shareholder-1098463.html"],
+ ["Falcon Energy Materials, Closes upsized C$34.24M private placement (AOF early-warning disclosure), Sep 2026","https://www.miningstockeducation.com/2026/09/falcon-energy-materials-plc-closes-upsized-c34-24-million-private-placement-to-fund-strategic-acquisition/"],
+ ["La Mancha Investments, Early warning report on Falcon Energy Materials, Feb 2026","https://lifestyle.kbew98country.com/story/76475/la-mancha-investments-s-a-r-l-to-file-early-warning-report-2/"],
+ ["Morocco World News (AFP), Qatar National Bank seeks to increase foreign ownership, Mar 2018","https://www.moroccoworldnews.com/2018/03/91545/qatar-national-bank-seeks-increase-foreign-ownership/"],
+ ["A&T Bank annual report: shareholders (Libyan Foreign Bank 62.37%), 2014","https://atbank.com.tr/Documents/outsource/ATB_2015eN_EBOOK/files/assets/basic-html/page-7.html"],
+ ["ALUBAF International Bank, Profile of major shareholder","https://www.alubafbank.com/en/about-alubaf/shareholders.html"],
+ ["The Sun (Malaysia), PETRONAS ownership stays federal, parliamentary reply","https://thesun.my/malaysia-news/news-malaysia-news-petronas-ownership-stays-federal-states-gain-participation-azalina-jl14686852/"],
+ ["Emirates Minting Factory, About us (founder and chairman)","https://emiratesminting.ae/information/about-us"]
 ];
 
 const COUNTRIES = [
@@ -615,6 +657,91 @@ e("alkhalifa","qnb","Group CEO",{conf:"reported",src:[38]}); e("qia","qnb","50%"
 e("kodio","s_ml","Director General of State Litigation",{src:[1]});
 e("ostrove","f_dla","partner (case role unconfirmed)",{conf:"unconfirmed",src:[41]}); e("kendra","f_kennedys","partner (case role unconfirmed)",{conf:"unconfirmed",src:[40]}); e("volterra_r","f_volterra","chair (case role unconfirmed)",{conf:"unconfirmed",src:[42]});
 
+// ---- ownership layer: [holderId, label, stake, asOf, conf, src, note?, former?]
+const OWN = [
+ {c:"sarama",co:"Sarama Resources Ltd",lst:"ASX: SRR · BC, Canada",chain:"Founder-controlled listed company. Insiders hold about 12.1% in total.",h:[
+   ["aigle","Aigle Royal (A. Poli Superannuation Fund)","5.18%","Nov 2025","verified",[5]],
+   ["dinning","Andrew Dinning (Exec. Chairman)","4.5%","Mar 2026","verified",[3]],
+   ["schmiede","Paul Schmiede (VP)","3.1%","Mar 2026","verified",[3]],
+   ["hamilton","Jack Hamilton (VP)","2.6%","Mar 2026","verified",[3]],
+   ["adelong","Adelong Gold Ltd (exited)","—","Aug 2025","reported",[6],"",true]],
+  note:"Sarama's arbitration funder Locke Capital II takes a share of any award before shareholders."},
+ {c:"lfb",co:"Libyan Foreign Bank",lst:"State-owned · Tripoli",chain:"100% Central Bank of Libya, which is controlled by the Libyan state.",h:[
+   ["cbl","Central Bank of Libya","100%","current","verified",[10]]],
+  note:"Itself a major owner abroad: British Arab Commercial Bank (84%), Banca UBAE (majority), A&T Bank Turkey (62.37% in 2014) and ALUBAF (99.5%)."},
+ {c:"aeci",co:"AECI Ltd (parent of AECI Mauritius)",lst:"JSE: AFE",chain:"Widely held South African listed company.",h:[
+   ["pic","Public Investment Corporation (SA state pension manager)","18.37%","Nov 2025","reported",[14]],
+   ["psg","PSG Asset Management","9.25%","Nov 2025","reported",[14]],
+   ["ninetyone","Ninety One","7.41%","Nov 2025","reported",[14]]]},
+ {c:"barrick",co:"Barrick Mining Corp (parent of Somilo & Gounkoto)",lst:"NYSE: B · TSX: ABX",chain:"Widely held; about 65% of shares held by institutions. The Malian state owns minority stakes in the Loulo and Gounkoto operating companies.",h:[
+   ["capintl","Capital International Investors","largest 13F holder","Jun 2026","reported",[65]],
+   ["vaneck","VanEck","60.0M shares","Jun 2026","reported",[65]],
+   ["vanguard","Vanguard Group","71.0M sh. (~4.2%)","Dec 2025","reported",[66]],
+   ["blackrock","BlackRock","50.0M shares","Jun 2026","reported",[65]]],
+  note:"Percentages for US funds come from quarterly 13F filings and lag by up to three months."},
+ {c:"b2gold",co:"B2Gold Corp (parent of Menankoto)",lst:"NYSE American: BTG · TSX: BTO",chain:"Widely held; about 69% of shares held by institutions.",h:[
+   ["vaneck","VanEck","6.91%","Jun 2026","reported",[68]],
+   ["palefire","Pale Fire Capital SE","4.89%","Jun 2026","reported",[68]],
+   ["l1cap","L1 Capital","3.70%","Jun 2026","reported",[68]]]},
+ {c:"agem",co:"AGEM Ltd",lst:"Private · Barbados",chain:"Owner not disclosed. Party to a Sadiola-zone mining convention with Mali.",h:[]},
+ {c:"sopam",co:"Sopam Energie SA",lst:"Private · Mali",chain:"Owner not disclosed. Malian independent power producer.",h:[]},
+ {c:"goviex",co:"Atomic Eagle Ltd (ex-GoviEx Uranium)",lst:"ASX: AEU",chain:"GoviEx became part of Atomic Eagle in a Nov 2025 merger with Tombador Iron.",h:[
+   ["menel","Menel Energy & Resources Ltd","8.98% (+35.1M options)","Mar 2026","reported",[69,70]],
+   ["davey","Grant Davey (Chairman)","11.7M shares","Jun 2026","reported",[69]],
+   ["denison","Denison Mines (GoviEx holder pre-merger)","~12% of GoviEx","pre-2025","reported",[44],"",true],
+   ["rfriedland","Robert Friedland (GoviEx holder pre-merger)","~3.2% of GoviEx","undated","unconfirmed",[44],"",true]],
+  note:"Director Muna Hantuba's indirect holding (35,149,114 shares plus 35,149,113 options) matches Menel's exactly, which suggests he is linked to Menel. Not confirmed in a filing."},
+ {c:"orano_sa",co:"Orano SA (parent of Orano Mining)",lst:"State-owned · France",chain:"French state company.",h:[
+   ["frstate","French State","90.33%","Oct 2024","reported",[30]],
+   ["jnfl","Japan Nuclear Fuel Ltd","4.83%","Oct 2024","reported",[30]],
+   ["mhi","Mitsubishi Heavy Industries","4.83%","Oct 2024","reported",[30]]]},
+ {c:"axis",co:"Axis International Ltd",lst:"Private · Ras Al Khaimah, UAE",chain:"Owns 85% of Axis Minerals Resources SA (Guinea holds 15%). Shareholders not disclosed.",h:[
+   ["poswal","Pankaj Oswal (founder, director, chairman)","owner-manager","Dec 2025","reported",[22]]]},
+ {c:"nimba",co:"Nimba Investment LLC & four UAE co-claimants",lst:"Private · UAE",chain:"Owners of Nimba Investment, MSS Aircraft Leasing, Global Aviation and Phoenix Precious Metals not disclosed.",h:[
+   ["essa","Essa Al Falasi (Chairman, Emirates Minting Factory)","chairman","2026","reported",[77]],
+   ["samirk","Samir Kharsa (founder, Emirates Minting Factory)","founder","2012","reported",[77]],
+   ["sidya","Yacoub Sidya (refinery financier)","unconfirmed","2025","unconfirmed",[43]]],
+  note:"Emirates Minting Factory, a co-claimant, describes itself as founded in 2012 by Samir Kharsa. Its shareholders are not published."},
+ {c:"nomad",co:"Nomad Bauxite Corporation Pte Ltd",lst:"Private · Singapore",chain:"Backed by co-claimant Almas Mynbayev.",h:[
+   ["mynbayev","Almas Mynbayev","owner / co-claimant","2025","reported",[1,20]]]},
+ {c:"falcon",co:"Falcon Energy Materials plc",lst:"TSXV: FLCN",chain:"Listed company with two large anchor holders.",h:[
+   ["lamancha","La Mancha Investments (Naguib Sawiris)","22.8% (30.8% with warrants)","Feb 2026","verified",[72]],
+   ["aof","AOF Trading LLC (Argentem Creek Partners, NY)","11.37%","Sep 2026","verified",[71]],
+   ["coris","Coris Capital (Idrissa Nassa)","~7.4%","2026","reported",[19]]],
+  note:"La Mancha also bought into the Sep 2026 placement; its new percentage was not disclosed."},
+ {c:"qnb",co:"Qatar National Bank (Q.P.S.C.)",lst:"QSE: QNBK",chain:"State-controlled listed bank.",h:[
+   ["qia","Qatar Investment Authority","50%","2018–2026","reported",[38,73]],
+   ["grsia","General Retirement & Social Insurance Authority (Qatar)","above 5%","2018","reported",[73]]]},
+ {c:"petronas",co:"PETRONAS International Corporation Ltd",lst:"State-owned · Malaysia",chain:"Subsidiary of PETRONAS, whose sole owner is the Malaysian federal government.",h:[
+   ["mygov","Government of Malaysia","100% of PETRONAS","2025","reported",[76]]]}
+];
+const NEWHOLDERS = {
+ capintl:["Capital International Investors","US asset manager (Capital Group)."],
+ vaneck:["VanEck","US fund manager; runs the GDX/GDXJ gold-miner ETFs. Top holder in both Barrick and B2Gold."],
+ vanguard:["Vanguard Group","US index fund manager."],
+ blackrock:["BlackRock","US asset manager."],
+ palefire:["Pale Fire Capital SE","Czech investment group."],
+ l1cap:["L1 Capital","Australian fund manager."],
+ menel:["Menel Energy & Resources Ltd","Largest shareholder in Atomic Eagle; committed A$10.9M via options in Sep 2026."],
+ psg:["PSG Asset Management","South African fund manager."],
+ ninetyone:["Ninety One","South Africa/UK asset manager (ex-Investec Asset Management)."],
+ aof:["AOF Trading LLC","Cayman investment vehicle run from Argentem Creek Partners in New York. 11.37% of Falcon after the Sep 2026 placement."],
+ grsia:["General Retirement & Social Insurance Authority","Qatar state pension authority."],
+ mygov:["Government of Malaysia","Sole owner of PETRONAS."],
+ essa:["Essa Al Falasi","Chairman of Emirates Minting Factory LLC."],
+ samirk:["Samir Kharsa","Founder of Emirates Minting Factory LLC (2012); formerly general manager of Emirates Gold."]
+};
+const PERSONISH = new Set(["essa","samirk"]);
+Object.entries(NEWHOLDERS).forEach(([id,[label,note]])=>{ if(!N.find(x=>x.id===id)) n(id,label,PERSONISH.has(id)?"person":"investor",note,"reported",[]) });
+OWN.forEach(o=>o.h.forEach(([id,label,stake,asof,conf,src,_,former])=>{
+  const nd=N.find(x=>x.id===id); if(nd&&!nd.src.length) nd.src=src;
+  const tgt = id==="essa"||id==="samirk"||id==="sidya" ? "emf" : o.c;
+  if(!E.some(x=>x.source===id&&x.target===tgt)) e(id,tgt,stake+(asof?" ("+asof+")":""),{conf,src,former});
+}));
+e("lfb","alubaf_n","99.5%",{src:[75]}); e("lfb","atbank","62.37% (2014)",{conf:"reported",src:[74]});
+n("alubaf_n","ALUBAF International Bank","company","Bahrain-based offshore bank, 99.5% owned by the Libyan Foreign Bank.","reported",[75]);
+n("atbank","A&T Bank (Turkey)","company","Turkish bank, 62.37% owned by the Libyan Foreign Bank in 2014.","reported",[74]);
+
 // ---- build register-derived nodes: states, cases, firms, arbitrators, state legal offices
 const CASES = D.cases.map(c=>({...c,...CX[c.no]}));
 const usedCC = [...new Set(CASES.map(c=>c.cc))];
@@ -667,7 +794,7 @@ function renderRail(){
   rail.innerHTML = `<button type="button" data-cc="" aria-pressed="${country===""}">All states <small>${CASES.length}</small></button>` +
     COUNTRIES.map(c=>{const k=CASES.filter(x=>x.cc===c.cc).length; return `<button type="button" data-cc="${c.cc}" class="${k?"":"zero"}" aria-pressed="${country===c.cc}" title="${c.coup}">${c.name} <small>${k||"0 since coup"}</small></button>`}).join("");
 }
-rail.onclick = ev=>{const b=ev.target.closest("button[data-cc]"); if(!b)return; country=b.dataset.cc; renderRail(); renderDocket(); renderStrip(); stCC=country; renderSt();
+rail.onclick = ev=>{const b=ev.target.closest("button[data-cc]"); if(!b)return; country=b.dataset.cc; renderRail(); renderDocket(); renderStrip(); stCC=country; renderSt(); renderOwn();
   focusSel.value = country?("cc:"+country):""; selected=null; applyView(); fit(visibleIds())};
 function renderStrip(){
   const cs = CASES.filter(c=>!country||c.cc===country);
@@ -701,6 +828,7 @@ function renderDocket(){
        <dt>State counsel</dt><dd>${c.repR.map(firmLink).join("<br>")||"—"}</dd>
        <dt>Tribunal</dt><dd>${arbs}</dd>
        <dt>ICSID latest</dt><dd>${esc(c.outcome||c.latest||"—")}</dd>
+       <dt>Owners</dt><dd>${(()=>{const o=OWN.find(x=>caseOf[x.c]&&caseOf[x.c].has("c_"+c.no)); return o? (o.h.length? o.h.filter(h=>!h[7]).slice(0,4).map(h=>esc(h[1])+" <small>("+esc(h[2])+")</small>").join("; ") : "Not disclosed") + ' <a href="#owners" style="font-size:.85rem">details</a>' : "—"})()}</dd>
        <dt>State says</dt><dd>${(typeof ST!=="undefined"?ST:[]).filter(x=>x.cases.includes(c.no)).map(x=>`<span class="kindtag">${x.dl}</span> ${esc(x.t)}`).join("<br>")||"No statement found"} <a href="#statements" style="font-size:.85rem">all statements</a></dd>
       </dl>
       <div class="case-actions"><button class="btn" type="button" data-focus="c_${c.no}">Show in network</button></div></div>
@@ -757,8 +885,10 @@ const adj={}; N.forEach(x=>adj[x.id]=[]);
 E.forEach(l=>{adj[l.source].push({o:l.target,l}); adj[l.target].push({o:l.source,l})});
 // case membership: BFS from each case without crossing states, firms or arbitrators (shared hubs)
 const caseOf={}; N.forEach(x=>caseOf[x.id]=new Set());
+// shareholders tied to more than one claimant (e.g. VanEck) are hubs: tag them, but don't spread one case to another through them
+const HUB = new Set(N.filter(x=>(x.type==="investor"||x.type==="person")&&adj[x.id].filter(({o})=>byId[o].type==="claimant").length>1).map(x=>x.id));
 CASES.forEach(c=>{const s="c_"+c.no; const seen=new Set([s]); const q=[s];
-  while(q.length){const v=q.shift(); caseOf[v].add(s); const t=byId[v].type; if(v!==s&&(t==="state"||t==="case"||t==="arb"||(t==="law"&&v.startsWith("f_"))||v.startsWith("g_")))continue;
+  while(q.length){const v=q.shift(); caseOf[v].add(s); const t=byId[v].type; if(v!==s&&(t==="state"||t==="case"||t==="arb"||(t==="law"&&v.startsWith("f_"))||v.startsWith("g_")||HUB.has(v)))continue;
     adj[v].forEach(({o})=>{if(!seen.has(o)){seen.add(o);q.push(o)}})}});
 // firm members (people) inherit firm cases
 N.filter(x=>x.type==="law"&&!x.id.startsWith("f_")&&!x.id.startsWith("g_")).forEach(x=>adj[x.id].forEach(({o})=>{if(o.startsWith("f_")||o.startsWith("g_")||o.startsWith("s_"))caseOf[o].forEach(c=>caseOf[x.id].add(c))}));
@@ -940,7 +1070,20 @@ function renderSt(){
 stchips.onclick = ev=>{const b=ev.target.closest("[data-st]"); if(!b)return; stCC=b.dataset.st; renderSt()};
 document.getElementById("stmts").addEventListener("click",ev=>{const b=ev.target.closest("[data-go]"); if(b) goNet(b.dataset.go)});
 
+function renderOwn(){
+  const rows = OWN.filter(o=>{ if(!country) return true; return [...(caseOf[o.c]||[])].some(c=>{const k=CASES.find(x=>"c_"+x.no===c); return k&&k.cc===country}) });
+  document.getElementById("owngrid").innerHTML = rows.map(o=>{
+    const cs=[...(caseOf[o.c]||[])].map(c=>c.slice(2)).join(" · ");
+    return `<article class="own"><header><h3><button type="button" data-go="${o.c}">${esc(o.co)}</button></h3><span class="lst">${esc(o.lst)}</span></header>
+     <p class="chain">${esc(o.chain)}</p>
+     ${o.h.length?`<table><tbody>${o.h.map(([id,label,stake,asof,conf,src,_,former])=>`<tr><td><button type="button" data-go="${id}">${esc(label)}</button>${former?' <small>(former)</small>':''}</td><td class="pct">${esc(stake)}</td><td class="asof">${esc(asof)}</td><td><span class="conf ${conf}">${conf}</span>${sup(src)}</td></tr>`).join("")}</tbody></table>`:`<p class="onote">No shareholder or owner disclosure found.</p>`}
+     ${o.note?`<p class="onote">${esc(o.note)}</p>`:""}
+     <div class="cases">${esc(cs)}</div></article>`}).join("") || `<p class="note">No claimants for this country.</p>`;
+}
+document.getElementById("owngrid").addEventListener("click",ev=>{const b=ev.target.closest("[data-go]"); if(b) goNet(b.dataset.go)});
+
 renderSt();
+renderOwn();
 renderRail(); renderStrip(); renderDocket(); renderDesk(); renderReg(); applyView();
 requestAnimationFrame(()=>fit(null));
 const h=location.hash.match(/^#n-([A-Za-z0-9_.~-]+)$/); if(h){const id=Object.keys(byId).find(k=>k.replace(/[^A-Za-z0-9_.~-]/g,"_")===h[1]); if(id) setTimeout(()=>select(id,{center:true}),300)}
