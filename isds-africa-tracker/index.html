@@ -127,6 +127,31 @@ section > .wrap > header p{margin:0;color:var(--muted);max-width:72ch}
 .own .onote{font-size:.84rem;margin:8px 0 0;color:var(--muted)}
 .own .cases{margin-top:8px;font-family:var(--font-mono);font-size:.72rem;color:var(--muted)}
 @media (max-width:720px){.owngrid{grid-template-columns:1fr}}
+.lp .items{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}
+.lp .items li{font-size:.88rem;padding-left:10px;border-left:3px solid var(--line)}
+.lp .items li.k-case{border-left-color:var(--accent)}
+.lp .items li.k-words{border-left-color:var(--gold)}
+.lp .items li.k-arbitrator{border-left-color:var(--t-arb)}
+.lp .items li.k-caution{border-left-color:var(--crit)}
+.lp .items li .kk{font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:block}
+.lp .guard{font-size:.84rem;margin:10px 0 0;padding:8px 10px;background:var(--sunk);border-left:3px solid var(--crit)}
+.dossier .items{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:6px}
+.dossier .items li{display:block;font-size:.84rem;padding-left:8px;border-left:3px solid var(--line)}
+.record{margin-top:6px;border-top:1px dashed var(--line);padding-top:12px}
+.reclinks{font-size:.86rem;margin:4px 0 10px;line-height:1.8}
+.args{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.argside{background:var(--bg);border:1px solid var(--line);border-top:3px solid var(--accent);padding:10px 12px;font-size:.88rem;min-width:0}
+.argside.rs{border-top-color:var(--t-state)}
+.argside ul{margin:6px 0 0;padding-left:1.1em;display:grid;gap:5px}
+a.btn{text-decoration:none;display:inline-block}
+.typebar{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface);align-items:center}
+.typebar .chip{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;padding:3px 9px}
+.typebar .chip i{width:9px;height:9px;border-radius:50%}
+.typebar .chip[aria-pressed="false"]{opacity:.55;text-decoration:line-through}
+.typebar .presets{display:flex;gap:6px;flex-wrap:wrap;margin-right:6px}
+.typebar .presets button{font:inherit;font-size:.76rem;border:1px dashed var(--accent);color:var(--accent);background:transparent;border-radius:4px;padding:3px 8px;cursor:pointer}
+.bench-wrap{border:1px solid var(--line);border-bottom:0}
+@media (max-width:720px){.args{grid-template-columns:1fr}}
 /* counsel desk */
 .findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
 .finding{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--gold);padding:12px 14px;font-size:.92rem}
@@ -302,12 +327,25 @@ footer{padding-block:24px;color:var(--muted);font-size:.82rem;border-top:1px sol
   </div>
 </section>
 
+<section id="lawyers">
+  <div class="wrap">
+    <header>
+      <h2>Lawyer profiles</h2>
+      <p>Background on the 18 individual lawyers named on these cases: their other cases, their own published views, and anything that shows how they work. Each item says how solid it is and where it comes from. Firm-level history is kept separate from what a person did.</p>
+    </header>
+    <div class="finding" style="margin-bottom:16px"><b>Search scope and headline result</b>Wider search done across all 18 attorneys, public web only; LinkedIn not re-checked. No public "junta belt" or "undermining" quote was found, and no disciplinary or sanctions record turned up for any named attorney.</div>
+    <div class="reg-controls" id="lpchips"></div>
+    <div class="owngrid" id="lawyergrid"></div>
+  </div>
+</section>
+
 <section id="network">
   <div class="wrap">
     <header>
       <h2>Pressure-point network</h2>
-      <p>Cases, claimants, officers, shareholders, funders, firms and arbitrators in one graph. Search, or filter by country or case. Click anything for its role, sources and connections. A firm or arbitrator also lists its other ICSID cases. Dashed lines are former roles.</p>
+      <p>Cases, claimants, officers, shareholders, funders, firms and arbitrators in one graph. Use the type buttons to show only lawyers, only states, only owners and so on (Alt-click a type to show it alone), or filter by country or case. Click anything for its role, sources and connections. A firm or arbitrator also lists its other ICSID cases. Dashed lines are former roles.</p>
     </header>
+    <div class="bench-wrap"><div class="typebar" id="typebar" role="group" aria-label="Show entity types"></div></div>
     <div class="bench">
       <aside class="index">
         <div class="controls">
@@ -344,7 +382,7 @@ footer{padding-block:24px;color:var(--muted);font-size:.82rem;border-top:1px sol
     <div>
       <h2>Gaps to close</h2>
       <ul class="gaps">
-        <li><b>Individual lawyers.</b> ICSID names firms, not people. Individual names here come from italaw or the register where a person is the representative. "Likely lead" partners are marked unconfirmed until a filing names them.</li>
+        <li><b>Individual lawyers.</b> ICSID names firms, not people. Team members for Orano (Clay Arbitration), Axis (Volterra Fietta) and Nimba (Kennedys) come from published team listings in the wider attorney search, not from ICSID filings. DLA Piper's Michael Ostrove remains unconfirmed on the Guinea cases.</li>
         <li><b>Who owns the Gulf claimants.</b> The beneficial owners of Nimba Investment, Emirates Minting Factory, Phoenix Precious Metals and Global Aviation are not public. Next step: UAE free-zone registries (DMCC, RAKEZ).</li>
         <li><b>Sopam Energie and AGEM Ltd.</b> Owners and officers not found. Sopam runs a 56 MW thermal plant near Bamako; AGEM is a Barbados company tied to the Sadiola gold zone.</li>
         <li><b>Locke Capital II LLC.</b> Sarama's funder; its principals are not disclosed.</li>
@@ -450,7 +488,36 @@ const SOURCES = [
  ["A&T Bank annual report: shareholders (Libyan Foreign Bank 62.37%), 2014","https://atbank.com.tr/Documents/outsource/ATB_2015eN_EBOOK/files/assets/basic-html/page-7.html"],
  ["ALUBAF International Bank, Profile of major shareholder","https://www.alubafbank.com/en/about-alubaf/shareholders.html"],
  ["The Sun (Malaysia), PETRONAS ownership stays federal, parliamentary reply","https://thesun.my/malaysia-news/news-malaysia-news-petronas-ownership-stays-federal-states-gain-participation-azalina-jl14686852/"],
- ["Emirates Minting Factory, About us (founder and chairman)","https://emiratesminting.ae/information/about-us"]
+ ["Emirates Minting Factory, About us (founder and chairman)","https://emiratesminting.ae/information/about-us"],
+ ["Lexology, Paris Court of Appeal sets aside DIT v. Port of Douala award over arbitrator Thomas Clay's undisclosed tie to Emmanuel Gaillard, Jan 2023","https://www.lexology.com/library/detail.aspx?g=6f884131-76bf-4691-9f3e-88b56e3015ba"],
+ ["Global Arbitration Review, Belgium's former prime minister joins Clay Arbitration, 16 Mar 2026 (PDF)","https://cdn.prod.website-files.com/65855cc763f8dd3590e091e6/69bd63805edca12be9ebf78d_Global%20Arbitration%20Review.%20Belgium%E2%80%99s%20former%20prime%20minister%20joins%20Clay%20Arbitration%2C%2016%20mars%202026.pdf"],
+ ["ADVFN, Zenith Energy Ltd: ICSID arbitration against the Republic of Tunisia","https://uk.advfn.com/stock-market/london/zenith-energy-ZEN/share-news/Zenith-Energy-Ltd-ICSID-Arbitration-against-the-Re/98814356"],
+ ["Kamalia Mehtiyeva, CV 2026 (ArbitralWomen)","https://arbitralwomen.org/media/com_osmembership/upload/6a16a964623aa_Kamalia_Mehtiyeva_CV_2026.pdf"],
+ ["Paris Arbitration Week, speaker bio: Taha Zahedi Vafa (Clay Arbitration)","https://parisarbitrationweek.com/speakers/taha-zahedi-vafaclayarbitration-com/"],
+ ["Mining Magazine, Resource nationalism: finding common ground in the minefield (Timothy Foden byline)","https://m-mtoday.com/news/resource-nationalism-finding-common-ground-in-the-minefield/"],
+ ["Crux Investor, How mining companies fight back when countries steal their assets (Foden interview)","https://www.cruxinvestor.com/posts/how-mining-companies-fight-back-when-countries-steal-their-assets"],
+ ["Lawdragon, Investors tapping into international treaties to fight back against resource nationalism, 13 Jan 2025","https://www.lawdragon.com/news-features/2025-01-13-investors-tapping-into-international-treaties-to-fight-back-against-resource-nationalism-in-africa-and-beyond"],
+ ["Practical Law Arbitration Blog, ICSID arbitration in the age of populism: the case for reform","http://arbitrationblog.practicallaw.com/icsid-arbitration-in-the-age-of-populism-the-case-for-reform/"],
+ ["Lawyer Monthly, Interview with Tim Foden, Boies Schiller Flexner, Jul 2022","https://www.lawyer-monthly.com/2022/07/an-interview-with-tim-foden-partner-at-boies-schiller-flexner/"],
+ ["NYU Journal of International Law and Politics, Emma Iannini, Xinjiang article, 2020 (PDF)","https://nyujilp.org/wp-content/uploads/2021/01/NYI104.pdf"],
+ ["Westmoreland v. Canada, tribunal document listing claimant counsel (PDF)","https://dev.arbitration.org/sites/default/files/awards/arb9026.pdf"],
+ ["MOL Group, Swiss tribunal rules Croatia targeted MOL's chairman with false allegations (press release)","https://molgroup.info/en/media-centre/press-releases/yet-another-international-tribunal-this-time-in-switzerland-has-ruled-that-croatia-targeted-mols-chairman-ceo-with-false-allegations"],
+ ["New Law Journal, Why exiting the Energy Charter Treaty will hinder clean energy transition (Foden & Salvador)","https://www.newlawjournal.co.uk/content/why-exiting-the-energy-charter-treaty-will-hinder-clean-energy-transition"],
+ ["Law360, Willkie adds international arbitration pro from Boies Schiller in DC","https://www.law360.co.uk/articles/2373048/willkie-adds-int-l-arbitration-pro-from-boies-schiller-in-dc"],
+ ["Volterra Fietta, Gunjan Sharma appointed inaugural Honorary International Law Practice Fellow of BIICL","https://volterrafietta.com/volterra-fietta-partner-gunjan-sharma-appointed-as-inaugural-honorary-international-law-practice-fellow-of-the-british-institute-of-international-and-comparative-law/"],
+ ["Chambers, Volterra Fietta investor-state arbitration (OI European Group v. Venezuela)","https://chambers.com/department/volterra-fietta-international-arbitration-investor-state-arbitration-uk-1:2718:11805:1:346925"],
+ ["IA Reporter, Profile: Robert Volterra","https://www.iareporter.com/articles/aprofilec/robert-volterra/"],
+ ["McGill Centre for Human Rights, former clerks (Rhianna Vonk)","https://www.mcgill.ca/humanrights/clinical/clerkships/formerclerks"],
+ ["Hogan Lovells, An historic precedent for victims of human trafficking in France (Kendra pro bono)","https://www.hoganlovells.com/en/responsible-business/pro-bono/stories/an-historic-precedent-for-victims-of-human-trafficking-in-france"],
+ ["AfricArb, About us","https://africarb.org/en/about-us/"],
+ ["Rusoro Mining v. Venezuela, award listing counsel (PDF)","https://www.acerislaw.com/wp-content/uploads/2021/06/Rusoro.pdf"],
+ ["ICSID, Adria Group v. Croatia, ARB/20/6, case details","https://icsid.worldbank.org/en/Pages/cases/casedetail.aspx?CaseNo=ARB/20/6"],
+ ["Thorndon Chambers, Robert Kirkness barrister profile","https://www.chambers.co.nz/barristers/robert-kirkness"],
+ ["ICSID, Sarama v. Burkina Faso: Claimant's Memorial on the Merits, 31 Oct 2025 (PDF, 187 pp.)","https://icsidfiles.worldbank.org/icsid/ICSIDBLOBS/OnlineAwards/C12367/DS21601_En.pdf"],
+ ["ICSID, Sarama v. Burkina Faso: Respondent's Counter-Memorial on the Merits and Memorial on Jurisdiction, 30 Mar 2026 (PDF, 316 pp.)","https://icsidfiles.worldbank.org/icsid/ICSIDBLOBS/OnlineAwards/C12367/DS21773_En.pdf"],
+ ["ICSID, Sarama v. Burkina Faso: Procedural Order No. 1, 17 Sep 2025 (PDF)","https://icsidfiles.worldbank.org/icsid/ICSIDBLOBS/OnlineAwards/C12367/DS21599_En.pdf"],
+ ["ICSID, Sarama v. Burkina Faso: Procedural Order No. 2, 18 Sep 2025 (PDF)","https://icsidfiles.worldbank.org/icsid/ICSIDBLOBS/OnlineAwards/C12367/DS21600_En.pdf"],
+ ["italaw, Orano Mining v. Niger (II), Decision on proposal to disqualify arbitrator Daniel Mainguy, 3 Nov 2025","https://www.italaw.com/cases/documents/14028"]
 ];
 
 const COUNTRIES = [
@@ -577,6 +644,10 @@ n("mee","Rebecca Mee","law","BSF, counsel of record for Sarama.","verified",[2])
 n("losco","Michael Losco","law","BSF, counsel of record for Sarama.","verified",[2]);
 n("salvador","Nessa Salvador","law","BSF, counsel of record for Sarama.","verified",[2]);
 n("iannini","Emma Iannini","law","BSF, counsel of record for Sarama.","verified",[2]);
+n("lakhno","Veronika Lakhno","law","Boies Schiller Flexner (UK); signed Sarama's Memorial of 31 Oct 2025.","verified",[102]);
+n("birbaguit","SCPA Birba-Guitanga & Associés","law","Ouagadougou law firm; co-counsel with Curtis for Burkina Faso on the Counter-Memorial of 30 Mar 2026. Not listed on the ICSID case page.","verified",[103]);
+n("boussim","Simon-Pierre Boussim","person","Burkina Faso's Minister of Energy, Mines and Quarries from Oct 2022. Sarama accuses him of demanding help reversing a Canadian drone-technology export ban and a CFA 6bn (about US$10.7M) payment before issuing the permit; Burkina Faso says the payment was a lawful acquisition price for a state asset and that Sarama itself offered help on the drone issue.","verified",[102,103]);
+n("soleil","Soleil Mining S.A.","company","Burkinabè company granted an exploration permit over the Tankoro area in late May 2024. Sarama says it is beneficially owned by a political ally of Capt. Traoré; Burkina Faso says it was granted after open marketing and paid an acquisition price.","reported",[102,103]);
 n("bf_officials","Burkina Faso legal officials","law","Named for the state on italaw: Asôrega Désiré Bado, Sansan Charlemagne Kambou, Dramane Bitibaly, Albert Kaboré, Karfa Gnanou. External counsel is Curtis.","verified",[2]);
 // LFB
 n("addarrat","Mohammed Ali Addarrat","person","Described as Chairman of the Libyan Foreign Bank; former adviser to the CBL Governor. Current title unconfirmed.","unconfirmed",[10,11]);
@@ -622,8 +693,16 @@ n("qia","Qatar Investment Authority","investor","Qatar's sovereign wealth fund; 
 // Named state/individual counsel
 n("kodio","Moussa Kenneye Kodio","law","Director General of State Litigation (DGCE), Mali. Represents Mali in Sopam Energie.","verified",[1]);
 n("ostrove","Michael Ostrove","law","DLA Piper global co-chair of international arbitration. Led Guinea's 2022 win against BSGR. Lead role on the 2025–26 Guinea cases not confirmed.","unconfirmed",[41]);
-n("kendra","Thomas Kendra","law","Kennedys Paris lead arbitration partner (ex-Hogan Lovells), with African mining-licence experience. Role on Nimba not confirmed.","unconfirmed",[40]);
-n("volterra_r","Robert Volterra","law","Chair of Volterra Fietta. Role on Axis not confirmed.","unconfirmed",[42]);
+n("kendra","Thomas Kendra","law","Kennedys Paris lead arbitration partner (ex-Hogan Lovells). Listed on the Nimba team in the wider attorney search; no filing naming him found.","reported",[40]);
+n("volterra_r","Robert Volterra","law","Chair of Volterra Fietta. Listed on the Axis team in the wider attorney search.","reported",[42,95]);
+n("tclay","Thomas Clay","law","Founder of Clay Arbitration; Orano's counsel against Niger. Sorbonne professor.","reported",[1,78]);
+n("mehtiyeva","Kamalia Mehtiyeva","law","Clay Arbitration, Orano team.","reported",[81]);
+n("zahedi","Taha Zahedi Vafa","law","Clay Arbitration, Orano team.","reported",[82]);
+n("aweber","Antoine Weber","law","Clay Arbitration, Orano team (GAR team listing).","reported",[]);
+n("olleik","Inaya Olleik","law","Clay Arbitration, Orano team (GAR team listing).","reported",[]);
+n("gsharma","Gunjan Sharma","law","Volterra Fietta partner, Axis team.","reported",[93]);
+n("vonk","Rhianna Vonk","law","Volterra Fietta, Axis team.","reported",[96]);
+n("agbessi","Naomi Agbessi","law","Volterra Fietta, Axis team.","reported",[]);
 
 // edges: claimants/parents/assets
 e("cbl","lfb","owns 100%",{src:[10]}); e("aeci","aeci_m","parent of",{src:[12]}); e("barrick","barrick_sub","majority owner",{src:[32]});
@@ -637,6 +716,10 @@ e("sjackson","resolute","director",{src:[3]}); e("sjackson","predictive","direct
 e("locke","sarama","US$4.4M funding",{src:[3]}); e("accuracy","sarama","damages expert",{src:[3]}); e("aigle","sarama","5.18%",{src:[5]});
 ["foden","mee","losco","salvador","iannini"].forEach(p=>e(p,"f_bsf","lawyer at",{src:[2]}));
 e("bf_officials","s_bf","legal officials",{src:[2]});
+e("lakhno","f_bsf","lawyer at",{src:[102]}); e("lakhno","c_ARB/24/51","signed Memorial",{src:[102]});
+e("birbaguit","c_ARB/24/51","co-counsel for respondent",{src:[103]}); e("birbaguit","s_bf","represents",{src:[103]});
+e("boussim","s_bf","Minister of Mines (from Oct 2022)",{src:[102,103]}); e("boussim","tankoro","refused / revoked permit (Aug 2023)",{src:[102,103]});
+e("soleil","tankoro","granted Tankoro permit (May 2024)",{conf:"reported",src:[103]});
 // LFB
 e("addarrat","lfb","Chairman (unconfirmed)",{conf:"unconfirmed",src:[10,11]}); e("lfb","bacb","owns 84%",{conf:"reported",src:[10]}); e("lfb","ubae","majority owner",{conf:"reported",src:[10]});
 // AECI
@@ -655,7 +738,9 @@ e("bos","falcon","CEO",{conf:"reported",src:[19]}); e("lamancha","falcon","~20�
 e("coris","falcon","~7.4%",{conf:"reported",src:[19]}); e("anassa","falcon","director",{conf:"reported",src:[19]}); e("anassa","coris","former BD director",{former:true,conf:"reported",src:[19]});
 e("alkhalifa","qnb","Group CEO",{conf:"reported",src:[38]}); e("qia","qnb","50%",{conf:"reported",src:[38]});
 e("kodio","s_ml","Director General of State Litigation",{src:[1]});
-e("ostrove","f_dla","partner (case role unconfirmed)",{conf:"unconfirmed",src:[41]}); e("kendra","f_kennedys","partner (case role unconfirmed)",{conf:"unconfirmed",src:[40]}); e("volterra_r","f_volterra","chair (case role unconfirmed)",{conf:"unconfirmed",src:[42]});
+e("ostrove","f_dla","partner (case role unconfirmed)",{conf:"unconfirmed",src:[41]}); e("kendra","f_kennedys","partner · Nimba team",{conf:"reported",src:[40]}); e("volterra_r","f_volterra","chair · Axis team",{conf:"reported",src:[42]});
+[["tclay","founder · Orano team"],["mehtiyeva","Orano team"],["zahedi","Orano team"],["aweber","Orano team"],["olleik","Orano team"]].forEach(([p,r])=>e(p,"f_clay",r,{conf:"reported"}));
+[["gsharma","partner · Axis team"],["vonk","Axis team"],["agbessi","Axis team"]].forEach(([p,r])=>e(p,"f_volterra",r,{conf:"reported"}));
 
 // ---- ownership layer: [holderId, label, stake, asOf, conf, src, note?, former?]
 const OWN = [
@@ -787,6 +872,49 @@ const sup = a => (a||[]).map(i=>`<a class="src" href="#src${i}" title="${SOURCES
 const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 document.getElementById("srclist").innerHTML = SOURCES.map((s,i)=>`<li id="src${i+1}"><a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a></li>`).join("");
 
+
+// ---- public record per case: links + argument summaries from published filings
+const ICSIDURL = no => "https://icsid.worldbank.org/cases/case-database/case-detail?CaseNo="+encodeURIComponent(no).replace(/%2F/g,"/");
+const ITALAW = {"ARB/24/51":"https://www.italaw.com/cases/11663","ARB/25/56":"https://www.italaw.com/cases/14417","ARB/25/48":"https://www.italaw.com/cases/14086","ARB/24/28":"https://www.italaw.com/cases/12734","ARB/25/8":"https://www.italaw.com/cases/14029","ARB/25/2":"https://www.italaw.com/cases/13357","ARB/21/18":"https://www.italaw.com/cases/9768"};
+const DOCS = {
+ "ARB/24/51":[[102,"Claimant's Memorial (31 Oct 2025)"],[103,"Burkina Faso's Counter-Memorial & Memorial on Jurisdiction (30 Mar 2026)"],[104,"Procedural Order No. 1"],[105,"Procedural Order No. 2"]],
+ "ARB/25/9":[[106,"Decision on disqualification of arbitrator Mainguy (3 Nov 2025)"]],
+ "ARB/25/8":[[29,"Orano press release on provisional measures (Sep 2025)"]]
+};
+const ARGS = {
+ "ARB/24/51":{
+  claimant:{by:"Sarama, through Boies Schiller Flexner (Memorial, 31 Oct 2025)",src:[102],pts:[
+   "Burkina Faso granted Sarama a new Tankoro 2 exploration permit by ministerial letter on 24 Nov 2021, once Sarama paid the fee. The formal arrêté was paperwork, not a condition of ownership.",
+   "After the Sep 2022 coup, Mines Minister Simon-Pierre Boussim called the Tankoro area a 'state asset' and made two 'illegitimate' demands before issuing the arrêté: get Canada to reverse a ban on exporting drone software, then pay CFA 6bn (about US$10.7M) with no basis in Burkinabè law.",
+   "When Sarama could not pay, the ministry 'retroactively' revoked the permit on 25 Aug 2023, citing only Sarama's 'inability to pay'. Sarama calls it 'a naked cash grab'.",
+   "The minister then advertised the permit 'for sale' at a mining conference in Perth (Sep 2023) and sold it to a Burkinabè company 'beneficially owned by a political ally' of Capt. Traoré.",
+   "Losing Tankoro also wiped out the value of the Bondi deposit (too small to mine alone) and the Koumandara and Karankasso projects.",
+   "Breaches of the Canada–Burkina Faso BIT: unlawful expropriation (Art. 10), fair and equitable treatment (Art. 6), national and most-favoured-nation treatment (Arts. 4–5).",
+   "Asks for US$242M (Accuracy's valuation, averaging a multiple-of-exploration-expenditure method and comparable transactions), interest at SOFR + 6% compounded, costs including funding fees, and an award net of Burkinabè tax.",
+   "Witnesses: Andrew Dinning, Paul Schmiede, Jack Hamilton. Experts: Edmond Richards and Simon Procopiou (Accuracy). Signed by Foden, Salvador, Iannini, Lakhno and Losco."]},
+  respondent:{by:"Burkina Faso, through Curtis, Mallet-Prevost and SCPA Birba-Guitanga & Associés (Counter-Memorial, 30 Mar 2026)",src:[103],pts:[
+   "Calls Sarama's account 'a cynical made-for-arbitration fiction' resting on self-interested testimony from its own founders and executives.",
+   "Jurisdiction: some claimed assets are not protected 'investments' or were not made lawfully; Sarama does not qualify as an 'investor of a Party'; and the claims are time-barred under the treaty.",
+   "Sarama let the original Tankoro permit expire in Dec 2020 after the 12-year maximum, losing all rights. The area became a state asset under an Oct 2020 notice, to be reallocated with 'special conditions' including an acquisition price.",
+   "The Nov 2021 letter did not grant a permit; it said further processing was needed. Only an arrêté grants mining rights. Until 2023, Sarama's own investor statements said it only 'anticipated' the permit.",
+   "Minister Boussim was not hostile and sought no bribe. The price reflected prior exploration spending and was applied to other reallocated areas too. Sarama proposed helping on the drone issue itself; it was never a condition.",
+   "The Aug 2023 letter 'merely' rejected Sarama's application because it would not pay the price. Nothing was revoked. The area was then openly marketed and granted to Soleil Mining in May 2024, which also paid a price.",
+   "Damages are 'aggressively distorted': Sarama's market capitalisation was about US$6.4M in Aug 2023. Acacia (64% owned by Barrick) paid only US$7M of exploration for 50% in 2014, then exited for about US$1M after spending over US$12M. Koumandara sold for US$160,000.",
+   "Burkinabè mining regulations say rejected permit applications give no right to any compensation. It accuses Sarama of bringing an extreme case hoping for a settlement or a default ruling."]},
+  next:"Sarama filed its Reply on the merits and Counter-Memorial on jurisdiction on 31 Jul 2026. Merits hearing 22–26 Feb 2027."},
+ "ARB/25/9":{note:"Only the decision on Niger's challenge to Orano's appointed arbitrator, Daniel Mainguy, is public; its outcome is not summarised in the public listing. No pleadings published.",src:[106]},
+ "ARB/25/8":{note:"No pleadings published. The tribunal's Sep 2025 order barring Niger from selling SOMAÏR uranium is known from Orano's press release; the case was suspended at Orano's request in Feb 2026.",src:[29,1]}
+};
+function recordHtml(no){
+  const a=ARGS[no], d=DOCS[no]||[];
+  const links=`<div class="reclinks"><a href="${ICSIDURL(no)}" target="_blank" rel="noopener">ICSID case page</a>${ITALAW[no]?` · <a href="${ITALAW[no]}" target="_blank" rel="noopener">italaw</a>`:""}${d.map(([i,t])=>` · <a href="${SOURCES[i-1][1]}" target="_blank" rel="noopener">${esc(t)}</a>`).join("")}</div>`;
+  let body="";
+  if(a&&a.claimant){
+    const side=(x,cls)=>`<div class="argside ${cls}"><b>${esc(x.by)}</b> ${sup(x.src)}<ul>${x.pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ul></div>`;
+    body=`<div class="args">${side(a.claimant,"cl")}${side(a.respondent,"rs")}</div>${a.next?`<p class="note"><b>Next:</b> ${esc(a.next)}</p>`:""}`;
+  } else body=`<p class="note">${esc(a?a.note:"No pleadings or decisions are published yet. Check the ICSID page as filings appear.")} ${a?sup(a.src):""}</p>`;
+  return `<div class="record"><p class="eyebrow">Public record &amp; arguments</p>${links}${body}</div>`;
+}
 // ---- country rail + strip
 let country = "";
 const rail = document.getElementById("rail");
@@ -831,9 +959,9 @@ function renderDocket(){
        <dt>Owners</dt><dd>${(()=>{const o=OWN.find(x=>caseOf[x.c]&&caseOf[x.c].has("c_"+c.no)); return o? (o.h.length? o.h.filter(h=>!h[7]).slice(0,4).map(h=>esc(h[1])+" <small>("+esc(h[2])+")</small>").join("; ") : "Not disclosed") + ' <a href="#owners" style="font-size:.85rem">details</a>' : "—"})()}</dd>
        <dt>State says</dt><dd>${(typeof ST!=="undefined"?ST:[]).filter(x=>x.cases.includes(c.no)).map(x=>`<span class="kindtag">${x.dl}</span> ${esc(x.t)}`).join("<br>")||"No statement found"} <a href="#statements" style="font-size:.85rem">all statements</a></dd>
       </dl>
-      <div class="case-actions"><button class="btn" type="button" data-focus="c_${c.no}">Show in network</button></div></div>
+      <div class="case-actions"><button class="btn" type="button" data-focus="c_${c.no}">Show in network</button><a class="btn" href="${ICSIDURL(c.no)}" target="_blank" rel="noopener">ICSID docket</a></div></div>
       <ol class="tl">${(c.tl||[]).map(t=>`<li class="${t[2]?"next":""}"><time>${t[0]}</time>${esc(t[1])}</li>`).join("")}</ol>
-     </div></details>`}).join("") :
+     <div style="grid-column:1/-1">${recordHtml(c.no)}</div></div></details>`}).join("") :
    `<p class="note">No ICSID cases have been registered against ${CNAME[country]} since its coup (${COUNTRIES.find(c=>c.cc===country).coup}). Watch for notices of intent and non-ICSID claims.</p>`;
 }
 document.getElementById("docket").addEventListener("click",ev=>{
@@ -922,9 +1050,23 @@ nodeSel.call(d3.drag().on("start",(ev,d)=>{if(!ev.active)sim.alphaTarget(.2).res
 let allLabels=false;
 document.getElementById("labels").onclick=function(){allLabels=!allLabels; this.textContent=allLabels?"Fewer labels":"All labels"; applyView()};
 
-function visibleIds(){const f=focusSel.value; if(!f) return new Set(nodes.map(d=>d.id));
-  let cs; if(f.startsWith("cc:")) cs=new Set(CASES.filter(c=>c.cc===f.slice(3)).map(c=>"c_"+c.no)); else cs=new Set([f.slice(5)]);
-  return new Set(nodes.filter(d=>[...caseOf[d.id]].some(c=>cs.has(c))).map(d=>d.id))}
+const typeOn = new Set(TYPE_ORDER);
+const PRESETS = [["Everything",TYPE_ORDER],["Lawyers & arbitrators",["case","law","arb"]],["States & cases",["state","case","claimant"]],["Owners & shareholders",["case","claimant","investor","funder"]],["People only",["person","law","arb"]],["Companies & boards",["claimant","company","investor"]]];
+function renderTypebar(){
+  document.getElementById("typebar").innerHTML = `<span class="presets">${PRESETS.map(([l],i)=>`<button type="button" data-preset="${i}">${l}</button>`).join("")}</span>`+
+    TYPE_ORDER.map(t=>`<button class="chip" type="button" data-type="${t}" aria-pressed="${typeOn.has(t)}"><i style="background:var(${TYPES[t].color})"></i>${TYPES[t].label} <small>${N.filter(x=>x.type===t).length}</small></button>`).join("");
+}
+document.getElementById("typebar").addEventListener("click",ev=>{
+  const p=ev.target.closest("[data-preset]"); const t=ev.target.closest("[data-type]");
+  if(p){ typeOn.clear(); PRESETS[+p.dataset.preset][1].forEach(x=>typeOn.add(x)); }
+  else if(t){ const k=t.dataset.type; if(ev.altKey||ev.metaKey){typeOn.clear(); typeOn.add(k)} else if(typeOn.has(k)) typeOn.delete(k); else typeOn.add(k); }
+  else return;
+  renderTypebar(); if(selected&&!visibleIds().has(selected)) selected=null; applyView(); fit(visibleIds());
+});
+function visibleIds(){const f=focusSel.value; let base=nodes;
+  if(f){ let cs; if(f.startsWith("cc:")) cs=new Set(CASES.filter(c=>c.cc===f.slice(3)).map(c=>"c_"+c.no)); else cs=new Set([f.slice(5)]);
+    base=nodes.filter(d=>[...caseOf[d.id]].some(c=>cs.has(c))); }
+  return new Set(base.filter(d=>typeOn.has(d.type)).map(d=>d.id))}
 function fit(ids){const pts=nodes.filter(d=>!ids||ids.has(d.id)); if(!pts.length)return; [W,H]=box();
   const x0=d3.min(pts,d=>d.x)-30,x1=d3.max(pts,d=>d.x)+140,y0=d3.min(pts,d=>d.y)-30,y1=d3.max(pts,d=>d.y)+30;
   const k=Math.min(2.4,.95*Math.min(W/(x1-x0),H/(y1-y0)));
@@ -932,11 +1074,11 @@ function fit(ids){const pts=nodes.filter(d=>!ids||ids.has(d.id)); if(!pts.length
 let selected=null;
 function applyView(){const vis=visibleIds(); let nb=null;
   if(selected){nb=new Set([selected]); adj[selected].forEach(({o})=>nb.add(o))}
-  const focused = focusSel.value!=="";
+  const focused = focusSel.value!=="" || typeOn.size<TYPE_ORDER.length;
   nodeSel.classed("dim",d=>!vis.has(d.id)||(nb&&!nb.has(d.id))).classed("sel",d=>d.id===selected).classed("show",d=>allLabels||(focused&&vis.has(d.id))||(nb&&nb.has(d.id)));
   linkSel.classed("dim",d=>!vis.has(d.source.id)||!vis.has(d.target.id)||(nb&&d.source.id!==selected&&d.target.id!==selected)).classed("hl",d=>selected&&(d.source.id===selected||d.target.id===selected));
   renderIndex(); renderDossier()}
-function select(id,{center=false}={}){selected=id; if(id&&!visibleIds().has(id)){focusSel.value=""} applyView();
+function select(id,{center=false}={}){selected=id; if(id&&byId[id]&&!typeOn.has(byId[id].type)){typeOn.add(byId[id].type); renderTypebar()} if(id&&!visibleIds().has(id)){focusSel.value=""} applyView();
   if(id&&center){const d=nodes.find(x=>x.id===id); [W,H]=box(); const t=d3.zoomTransform(svg.node()); const k=Math.max(t.k,1.2);
     svg.transition().duration(450).call(zoom.transform,d3.zoomIdentity.translate(W/2-k*d.x,H/2-k*d.y).scale(k))}
   try{ if(id) history.replaceState(null,"","#n-"+id.replace(/[^A-Za-z0-9_.~-]/g,"_")) }catch(_){}}
@@ -972,7 +1114,7 @@ function renderDossier(){
   dossier.innerHTML=`<div class="eyebrow">${TYPES[d.type].label}${cs&&d.type!=="case"?" · "+esc(cs):""}</div><h3>${esc(d.label)}</h3><span class="conf ${d.conf}">${d.conf}</span>
    <p>${esc(d.note)} ${sup(d.src)}</p>${d.lev?`<div class="lev"><b>Leverage note.</b> ${esc(d.lev)}</div>`:""}
    <p class="eyebrow" style="margin-top:14px">Connections · ${conns.length}</p>
-   <ul>${conns.map(({o,l})=>`<li><button type="button" data-go="${o.id}">${esc(o.label)}</button><small>${esc(l.rel)}${l.former?" (former)":""}${l.conf!=="verified"?" · "+l.conf:""}</small></li>`).join("")}</ul>${otherCases(selected)}`}
+   <ul>${conns.map(({o,l})=>`<li><button type="button" data-go="${o.id}">${esc(o.label)}</button><small>${esc(l.rel)}${l.former?" (former)":""}${l.conf!=="verified"?" · "+l.conf:""}</small></li>`).join("")}</ul>${PROFBY[selected]?`<p class="eyebrow" style="margin-top:14px">Lawyer profile</p>${itemsHtml(PROFBY[selected].items)}${PROFBY[selected].guard?`<p class="lev">${esc(PROFBY[selected].guard)}</p>`:""}`:""}${FIRMNOTE[selected]?`<div class="lev"><b>Firm note.</b> ${esc(FIRMNOTE[selected])}</div>`:""}${otherCases(selected)}`}
 dossier.addEventListener("click",ev=>{const b=ev.target.closest("button[data-go]"); if(b) select(b.dataset.go,{center:true})});
 
 // ---- register
@@ -1002,7 +1144,7 @@ const ST = [
  {d:"2025-11-04",dl:"2023–2026",cc:"bf",cases:["ARB/24/51"],kind:"silence",who:"Government of Burkina Faso",how:"No public comment",t:"No public comment on the Sarama claim",
   sum:"The press found no public government statement on the Sarama arbitration. Burkina Faso did not respond to Sarama's notice of intent during the 60-day consultation period.",conf:"reported",src:[3,45]},
  {d:"2026-03-31",dl:"31 Mar 2026",cc:"bf",cases:["ARB/24/51"],kind:"proc",who:"Burkina Faso, through Curtis, Mallet-Prevost",how:"ICSID filing",t:"Contests the tribunal's jurisdiction and the merits",
-  sum:"Burkina Faso filed its counter-memorial on the merits together with a memorial on jurisdiction, so it argues both that the tribunal cannot hear the claim and that the claim fails. The filing is on the ICSID site but has not been summarised in the press.",conf:"verified",src:[1,2]},
+  sum:"In its counter-memorial, Burkina Faso says the Tankoro permit expired in 2020 and no new one was ever granted, so nothing was revoked. It says the CFA 6bn figure was a lawful acquisition price, not a bribe, and calls Sarama's case a made-for-arbitration fiction. It also objects to jurisdiction, including a time bar. Full summary in the docket.",q:["a cynical made-for-arbitration fiction","Burkina Faso's description of Sarama's account"],conf:"verified",src:[103]},
  {d:"2021-05-27",dl:"Mar–May 2021",cc:"ml",cases:["ARB/21/38"],kind:"public",who:"Government of Mali (transitional PM Moctar Ouane)",how:"Permit decision and decree",t:"Mali refuses to renew B2Gold's Menankoto permit, then cancels the grant to a local firm",
   sum:"Mali turned down the Menankoto permit renewal without giving a reason. A May 2021 decree then cancelled a 24 March decision handing the same area to the Malian company Little Big Mining, again without stated reasons. Mali later issued a new permit to B2Gold under the 2019 code, and the claim was withdrawn.",conf:"reported",src:[34,49]},
  {d:"2024-10-23",dl:"23 Oct 2024",cc:"ml",cases:["ARB/25/2"],kind:"public",who:"Ministries of Economy and Finance and of Mines",how:"Joint statement",t:"Mali accuses Barrick of breaking its commitments",
@@ -1082,9 +1224,92 @@ function renderOwn(){
 }
 document.getElementById("owngrid").addEventListener("click",ev=>{const b=ev.target.closest("[data-go]"); if(b) goNet(b.dataset.go)});
 
+// ---- lawyer profiles (wider attorney search batch). k: case | words | background | arbitrator | firm | caution
+const PROF = [
+ {id:"tclay",name:"Thomas Clay",firm:"Clay Arbitration",fid:"f_clay",cases:["ARB/25/8","ARB/25/9"],items:[
+   {k:"arbitrator",t:"As arbitrator, not as Orano's counsel: an ICC award he chaired in DIT v. Port of Douala was set aside by the Paris Court of Appeal in Jan 2023 because he did not disclose a close relationship with DIT's counsel Emmanuel Gaillard. The court read a tribute Clay wrote after Gaillard's death as showing more than an academic tie, including that Clay consulted him before important choices. The Court of Cassation upheld the set-aside.",src:[78],conf:"reported"},
+   {k:"case",t:"Second confirmed claimant case: leads Zenith Energy's subsidiaries against Tunisia, about US$572.65M; merits hearing in Paris in Apr 2026, award expected around Q1 2027. Curtis, Burkina Faso's counsel, acts for Tunisia.",src:[80,1],conf:"reported"},
+   {k:"firm",t:"Firm-level, not Orano: Clay Arbitration hired Charles Michel, former Belgian PM and European Council president, as senior counsel in Mar 2026.",src:[79],conf:"reported"},
+   {k:"background",t:"Sorbonne law professor, former acting president of Paris 1, Court of Arbitration for Sport arbitrator, and co-chair of the working party on reforming French arbitration law.",src:[],conf:"reported"}]},
+ {id:"mehtiyeva",name:"Kamalia Mehtiyeva",firm:"Clay Arbitration",fid:"f_clay",cases:["ARB/25/8","ARB/25/9"],items:[
+   {k:"case",t:"CV lists: counsel to shareholders from the Indigenous Evenk community against Russia over revoked licences for a nephrite mine, and to 73 traders against Binance at the Hong Kong International Arbitration Centre (HKIAC). Also work before the European Court of Human Rights, Interpol's files commission and the UN Human Rights Committee.",src:[81],conf:"reported"},
+   {k:"background",t:"Research on espionage, sanctions, Interpol, extradition and asset freezing. Holds senior Azerbaijani arbitration posts: ICC Court member, president of the Azerbaijan Arbitration Association and of the Baku Arbitration Centre.",src:[81],conf:"reported"}],
+  guard:"The Evenk, Binance and other matters come from her own CV and are not independently verified as separate cases."},
+ {id:"zahedi",name:"Taha Zahedi Vafa",firm:"Clay Arbitration",fid:"f_clay",cases:["ARB/25/8","ARB/25/9"],items:[
+   {k:"background",t:"Conference bio: clients include states, public companies, multinationals and international organisations; sectors include defence. Has appeared in sanctions-delisting cases before the EU Court of Justice. No specific sanctions client named.",src:[82],conf:"reported"}]},
+ {id:"aweber",name:"Antoine Weber",firm:"Clay Arbitration",fid:"f_clay",cases:["ARB/25/8","ARB/25/9"],items:[],
+  guard:"Possible earlier King & Spalding or Energy Charter Treaty work is a name match only and not confirmed to be the same person. Not asserted here."},
+ {id:"olleik",name:"Inaya Olleik",firm:"Clay Arbitration",fid:"f_clay",cases:["ARB/25/8","ARB/25/9"],items:[],
+  guard:"No public material found beyond the GAR listing of the Orano team."},
+ {id:"f_access",name:"Hamadoun Coulibaly",firm:"Access SARL, Bamako",fid:"f_access",cases:["ARB/26/39"],items:[],
+  guard:"No reliable public material beyond the ICSID listing. Not the same person as a Mamadou Coulibaly at another Bamako firm."},
+ {id:"f_kassim",name:"Mamadou Kassim Traoré",firm:"Étude de Maître Mamadou Kassim, Bamako",fid:"f_kassim",cases:["ARB/26/39"],items:[],
+  guard:"No reliable public material beyond the ICSID listing. Not the journalist of a similar name convicted in a Malian defamation case; they are different people."},
+ {id:"foden",name:"Timothy L. Foden",firm:"Boies Schiller Flexner",fid:"f_bsf",cases:["ARB/24/51"],items:[
+   {k:"words",t:"Bylined Mining Magazine piece (not about Sarama): describes recent coups in Francophone Africa as politically popular but fiscally irresponsible, and warns of Pyrrhic victories where a newly installed military junta may win hearts and minds but leave long-term liabilities.",src:[83],conf:"reported"},
+   {k:"words",t:"Crux Investor interview (paraphrased): his practice is driven by electoral politics or the greedier motives of newly installed leaders, and successful claims often show states bent or broke their own laws to deny permits.",src:[84],conf:"reported"},
+   {k:"case",t:"Lawdragon Q&A: says he is claiming about US$331M for an investor against Poland over coal nationalisation; Tanzania settlements of US$30M, US$90M and US$27M; a US$1.2B notice for another client. On Indiana Resources: award about US$110M with interest, Tanzania sought annulment fearing seizure of assets such as aircraft, then settled for US$90M.",src:[85],conf:"reported"},
+   {k:"words",t:"On ISDS reform (conference report, paraphrased): said the premise that reform is needed is wrong, and challenged anyone to show actual abuse not already self-regulated.",src:[86],conf:"reported"},
+   {k:"background",t:"Says he worked to obtain President Obama's first commutation, for Eugenia Jennings. The ACLU confirms Jennings was the first commutation but does not name Foden, so his role is self-reported.",src:[87],conf:"unconfirmed"},
+   {k:"words",t:"Co-author with Nessa Salvador of an article arguing that leaving the Energy Charter Treaty will hinder, not help, the UK's clean energy transition.",src:[91],conf:"reported"}]},
+ {id:"iannini",name:"Emma Iannini",firm:"Boies Schiller Flexner",fid:"f_bsf",cases:["ARB/24/51"],items:[
+   {k:"background",t:"As an NYU student, wrote a 2020 article on the Confucian principles invoked behind the CCP's mass imprisonment of ethnic minorities in Xinjiang, describing an estimated one million Uighurs, Kazakhs and other Turkic Muslims imprisoned, separated families and forced labour.",src:[88],conf:"reported"},
+   {k:"case",t:"Listed on the claimant side in Westmoreland Coal v. Canada.",src:[89],conf:"reported"},
+   {k:"words",t:"Quoted on Euroscepticism, saying Eurosceptic leaders had gone quiet on leaving the EU. Her firm bio also lists defence work for Türkiye (state side, not counted as claimant work).",src:[],conf:"reported"}]},
+ {id:"losco",name:"Michael Losco",firm:"Boies Schiller Flexner",fid:"f_bsf",cases:["ARB/24/51"],items:[
+   {k:"case",t:"Counsel listing for MOL Hungarian Oil v. Croatia (ICSID ARB/13/32). The tribunal rejected Croatia's allegation that MOL's chairman bribed ex-PM Ivo Sanader and awarded MOL more than US$230M with interest; a later Swiss tribunal also found Croatia failed to prove bribery.",src:[90],conf:"reported"},
+   {k:"background",t:"Has spoken on parallel arbitration and criminal proceedings involving corruption allegations. No transcript found.",src:[],conf:"reported"}]},
+ {id:"salvador",name:"Nessa Salvador",firm:"Boies Schiller Flexner",fid:"f_bsf",cases:["ARB/24/51"],items:[
+   {k:"words",t:"Co-authored with Foden an article arguing that exiting the Energy Charter Treaty will hinder net zero and the UK's clean energy transition, defending the treaty against the main climate critique of it.",src:[91],conf:"reported"}]},
+ {id:"mee",name:"Rebecca Mee",firm:"Boies Schiller Flexner (now Willkie per LinkedIn)",fid:"f_bsf",cases:["ARB/24/51"],items:[
+   {k:"case",t:"Firm bio lists: an African private equity firm in an arbitration over financing to a Nigerian oil and gas company, and a US tech company in an ICSID claim against an African state for expropriation. Bio-reported only; no filings found. Bio also lists state-side work (not counted).",src:[],conf:"reported"},
+   {k:"background",t:"Law360 headline confirms a move to Willkie Farr & Gallagher in Washington; details paywalled.",src:[92],conf:"reported"}]},
+ {id:"gsharma",name:"Gunjan Sharma",firm:"Volterra Fietta",fid:"f_volterra",cases:["ARB/26/3"],items:[
+   {k:"case",t:"Firm bio lists unnamed investor-side matters: a multi-billion-dollar nuclear treaty arbitration, a multi-billion-euro arbitration against France over expropriation of a gold mine, and Al Jazeera v. Egypt. No client names or case numbers, so not treated as confirmed cases.",src:[93],conf:"reported"},
+   {k:"background",t:"State-side work: led Egypt's defence in the Al Jazeera ICSID case, advised Saudi Arabia, and defended Malaysia against enforcement of the Sulu award (described as obtained by fraud). No allegation against him personally found.",src:[93],conf:"reported"}]},
+ {id:"volterra_r",name:"Robert Volterra",firm:"Volterra Fietta",fid:"f_volterra",cases:["ARB/26/3"],items:[
+   {k:"case",t:"Led the team that won a US$455M award for OI European Group against Venezuela, then won the annulment, with Venezuela ordered to pay costs.",src:[94],conf:"reported"},
+   {k:"arbitrator",t:"As arbitrator, dissented in RREEF v. Spain, taking a broader pro-investor view of legitimate expectations than the majority.",src:[95],conf:"reported"},
+   {k:"words",t:"At a Sulu-related colloquium (rapporteur's paraphrase), warned that imposing a foreign award on a sovereign may be easily abused. This is a state-defence position.",src:[],conf:"reported"}],
+  guard:"The Koch entities' US$370M award against Venezuela is a firm win; it is not attributed to Volterra personally."},
+ {id:"vonk",name:"Rhianna Vonk",firm:"Volterra Fietta",fid:"f_volterra",cases:["ARB/26/3"],items:[
+   {k:"background",t:"Former PCA clerk; Global Affairs Canada work including Nepal, Bhutan and Afghanistan; human rights internships at the UN Human Rights Council mission and in Togo; Federal Court of Appeal clerkship.",src:[96],conf:"reported"}]},
+ {id:"agbessi",name:"Naomi Agbessi",firm:"Volterra Fietta",fid:"f_volterra",cases:["ARB/26/3"],items:[],
+  guard:"No individual material found beyond the Axis team listing. Nothing is inferred about nationality or client ties from the surname."},
+ {id:"kendra",name:"Thomas Kendra",firm:"Kennedys",fid:"f_kennedys",cases:["ARB/25/56"],items:[
+   {k:"background",t:"Led pro bono human-trafficking cases at Hogan Lovells, including a Cour de cassation ruling wholly in a victim's favour described as a historic precedent, and work on the Essex 39 matter.",src:[97],conf:"reported"},
+   {k:"background",t:"Founding member and co-head of AfricArb since 2021; helped set up the Kigali International Arbitration Centre (KIAC) in Rwanda in 2012.",src:[98],conf:"reported"},
+   {k:"words",t:"Co-authored scholarly work on corruption allegations in investment arbitration.",src:[],conf:"reported"}]},
+ {id:"f_kirkness",name:"Robert Kirkness",firm:"Independent barrister, Thorndon Chambers (Wellington)",fid:"f_kirkness",cases:["ARB/25/48"],items:[
+   {k:"case",t:"Listed among Freshfields counsel for Rusoro Mining v. Venezuela; his bio says the award exceeded US$1B for expropriation of gold rights.",src:[99],conf:"reported"},
+   {k:"case",t:"Claimant representative in Adria Group v. Croatia (ICSID ARB/20/6), over the Agrokor takeover.",src:[100,1],conf:"verified"},
+   {k:"case",t:"Bio says he represented East Mediterranean Gas in four parallel arbitrations against Egypt after the 2011 revolution, winning each. Bio-reported only.",src:[101],conf:"reported"},
+   {k:"background",t:"Pro bono human rights work: Hungary's 'Stop Soros' litigation, UN reprisals, a model law on human rights defenders, protection of women defenders in Côte d'Ivoire, and the Yogyakarta Principles. Has also defended states including Korea, Vietnam and Romania.",src:[101],conf:"reported"}]}
+];
+const FIRMNOTE = {
+ f_bsf:"Firm history (David Boies / Weinstein / Black Cube / Theranos) is firm-level. None of the five Sarama lawyers is named in it, and Foden joined in 2022, after those events.",
+ f_volterra:"Firm client lists (Bahrain, Myanmar, Libya, Saudi Arabia, TeleYemen) are firm-level and not attributed to Volterra or Sharma without a case naming them. The Bahrain surveillance allegation concerns the client, not the lawyers.",
+ f_clay:"Hired Charles Michel, former Belgian PM and European Council president, as senior counsel in Mar 2026. Also acts for Zenith Energy against Tunisia (about US$572.65M)."
+};
+const PROFBY = Object.fromEntries(PROF.map(x=>[x.id,x]));
+const KLABEL = {case:"Other case",words:"In their own words",background:"Background",arbitrator:"As arbitrator",firm:"Firm-level",caution:"Caution"};
+const itemsHtml = it => `<ul class="items">${it.map(x=>`<li class="k-${x.k}"><span class="kk">${KLABEL[x.k]} · <span class="conf ${x.conf}">${x.conf}</span></span>${esc(x.t)} ${sup(x.src)}</li>`).join("")}</ul>`;
+let lpCase="";
+function renderLawyers(){
+  const cs=[...new Set(PROF.flatMap(x=>x.cases))];
+  document.getElementById("lpchips").innerHTML=`<button class="chip" type="button" data-lp="" aria-pressed="${lpCase===""}">All · ${PROF.length}</button>`+cs.map(no=>`<button class="chip" type="button" data-lp="${no}" aria-pressed="${lpCase===no}">${esc(shortOf(no))}</button>`).join("");
+  document.getElementById("lawyergrid").innerHTML=PROF.filter(x=>!lpCase||x.cases.includes(lpCase)).map(x=>`<article class="own lp"><header><h3><button type="button" data-go="${x.id}">${esc(x.name)}</button></h3><span class="lst">${esc(x.firm)}</span></header>
+    <p class="chain">On: ${x.cases.map(no=>esc(shortOf(no))).join(", ")}</p>
+    ${x.items.length?itemsHtml(x.items):`<p class="onote">No further public material found.</p>`}
+    ${x.guard?`<p class="guard">${esc(x.guard)}</p>`:""}</article>`).join("");
+}
+document.getElementById("lpchips").onclick=ev=>{const b=ev.target.closest("[data-lp]"); if(!b)return; lpCase=b.dataset.lp; renderLawyers()};
+document.getElementById("lawyergrid").addEventListener("click",ev=>{const b=ev.target.closest("[data-go]"); if(b) goNet(b.dataset.go)});
+
 renderSt();
+renderLawyers();
 renderOwn();
-renderRail(); renderStrip(); renderDocket(); renderDesk(); renderReg(); applyView();
+renderTypebar(); renderRail(); renderStrip(); renderDocket(); renderDesk(); renderReg(); applyView();
 requestAnimationFrame(()=>fit(null));
 const h=location.hash.match(/^#n-([A-Za-z0-9_.~-]+)$/); if(h){const id=Object.keys(byId).find(k=>k.replace(/[^A-Za-z0-9_.~-]/g,"_")===h[1]); if(id) setTimeout(()=>select(id,{center:true}),300)}
 window.addEventListener("resize",()=>{[W,H]=box()});
