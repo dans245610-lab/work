@@ -92,6 +92,22 @@ section > .wrap > header p{margin:0;color:var(--muted);max-width:72ch}
 .src{font-family:var(--font-mono);font-size:.7rem;vertical-align:super;color:var(--accent);text-decoration:none;margin-left:1px}
 .note{font-size:.92rem;margin:12px 0 0}
 
+.stmts{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.stmt{background:var(--surface);border:1px solid var(--line);display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 20px;padding:14px 16px}
+.stmt.kind-proc{border-style:dashed}
+.stmt.kind-silence{background:var(--sunk)}
+.stmt .when{font-family:var(--font-mono);font-size:.8rem;color:var(--muted);display:grid;gap:4px;align-content:start}
+.stmt .when b{color:var(--fg);font-size:.86rem}
+.stmt h3{font-size:1.08rem;margin-bottom:2px}
+.stmt .who{font-size:.86rem;color:var(--muted);margin:0 0 6px}
+.stmt p{margin:6px 0 0;font-size:.93rem;max-width:80ch}
+.stmt blockquote{margin:8px 0 0;padding:4px 0 4px 12px;border-left:3px solid var(--t-state);font-size:.92rem}
+.stmt blockquote i{display:block;color:var(--muted);font-style:normal;font-size:.85rem}
+.stmt .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.stmt .tags button{all:unset;cursor:pointer;font-family:var(--font-mono);font-size:.72rem;border:1px solid var(--line);border-radius:3px;padding:1px 6px;color:var(--accent)}
+.stmt .tags button:focus-visible{outline:2px solid var(--accent)}
+.kindtag{font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+@media (max-width:720px){.stmt{grid-template-columns:1fr}}
 /* counsel desk */
 .findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
 .finding{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--gold);padding:12px 14px;font-size:.92rem}
@@ -230,6 +246,17 @@ footer{padding-block:24px;color:var(--muted);font-size:.82rem;border-top:1px sol
   </div>
 </section>
 
+<section id="statements">
+  <div class="wrap">
+    <header>
+      <h2>What the states say</h2>
+      <p>Public statements by the respondent governments on these disputes, with a plain-English summary of each, plus the positions they have taken inside the arbitrations. Quotes are short extracts, translated from French where needed. Where a government has said nothing, that is recorded too.</p>
+    </header>
+    <div class="reg-controls" id="stchips"></div>
+    <ol class="stmts" id="stmts"></ol>
+  </div>
+</section>
+
 <section id="counsel">
   <div class="wrap">
     <header>
@@ -362,7 +389,26 @@ const SOURCES = [
  ["Legal 500, Volterra Fietta, public international law (London)","https://www.legal500.de/rankings/ranking/c-london/dispute-resolution/public-international-law/3793-volterra-fietta"],
  ["Africa Business+, Emirates Minting Factory and Conakry progress on gold refinery","https://www.africabusinessplus.com/en/821009/emirates-minting-factory-and-conakry-progress-on-gold-refinery-project-in-guinea/"],
  ["GoviEx, Change to board of directors (Denison stake, David Cates), Jan 2024","https://www.newsfilecorp.com/release/75037"],
- ["Ecofin Agency, Burkina Faso faces $242 million arbitration over Tankoro 2, 4 Nov 2025","https://www.ecofinagency.com/news-industry/0411-50118-burkina-faso-faces-242-million-arbitration-over-revoked-tankoro-2-gold-permit"]
+ ["Ecofin Agency, Burkina Faso faces $242 million arbitration over Tankoro 2, 4 Nov 2025","https://www.ecofinagency.com/news-industry/0411-50118-burkina-faso-faces-242-million-arbitration-over-revoked-tankoro-2-gold-permit"],
+ ["Présidence du Faso, Council of Ministers: government nationalises Banque Commerciale du Burkina, 22 May 2024","https://www.presidencedufaso.bf/finances-le-gouvernement-nationalise-la-banque-commerciale-du-burkina/"],
+ ["Labor Presse, After denouncing the convention with Libya, government nationalises BCB","https://www.laborpresse.net/banque-commerciale-du-burkina-bcb-apres-la-denonciation-de-la-convention-avec-la-libye-le-gouvernement-burkinabe-nationalise-la-bcb/"],
+ ["Mining Focus Africa (Reuters), Foreign mining firms face permit revocation in Burkina Faso, 8 Oct 2024","https://miningfocusafrica.com/2024/10/08/foreign-mining-firms-face-permit-revocation-in-burkina-faso/"],
+ ["Mining Weekly (Reuters), Mali quashed grant of B2Gold permit to upstart miner: decree, 27 May 2021","https://www.miningweekly.com/article/mali-quashed-grant-of-b2gold-permit-to-upstart-miner---decree-2021-05-27"],
+ ["MINING.COM (Reuters), Mali accuses Barrick Gold of breaching agreement, miner denies claims, 25 Oct 2024","https://www.mining.com/web/mali-accuses-barrick-gold-of-breaching-agreement-miner-denies-claims/"],
+ ["Agence Ecofin, Mali: government seizes Barrick's gold production, Jan 2025","https://www.agenceecofin.com/actualites-industries/1301-124866-mali-le-gouvernement-saisit-la-production-d-or-du-canadien-barrick"],
+ ["AllAfrica, Mali: Bamako places Barrick under provisional administration, Jun 2025","https://fr.allafrica.com/stories/202506180123.html"],
+ ["Le Devoir (AFP), Barrick settles its dispute with the Malian government, Nov 2025","https://www.ledevoir.com/monde/afrique/936336/miniere-barrick-regle-differend-gouvernement-malien"],
+ ["Connaissance des Énergies (AFP), Niger withdraws Imouraren operating permit from Orano, 20 Jun 2024","https://www.connaissancedesenergies.org/afp/le-niger-retire-le-permis-dexploitation-dun-grand-gisement-duranium-au-groupe-francais-orano-240620"],
+ ["World Nuclear News, Niger government withdraws GoviEx mining rights, Jul 2024","https://www.world-nuclear-news.org/articles/niger-government-withdraws-goviex-mining-rights"],
+ ["Agence Nigérienne de Presse, Niger nationalises SOMAÏR after Orano's 'irresponsible acts', 20 Jun 2025","https://anp.ne/mines-le-niger-nationalise-la-somair-suite-aux-actes-irresponsables-de-lactionnaire-majoritaire-le-francais-orano/"],
+ ["Engineering News (Reuters), Niger accuses France's Orano of radioactive pollution as uranium row deepens, 4 Dec 2025","https://engineeringnews.co.za/article/niger-accuses-frances-orano-of-radioactive-pollution-as-uranium-row-deepens-2025-12-04"],
+ ["Africanews, Niger military government to sue French uranium giant over environment, 4 Feb 2026","https://www.africanews.com/amp/2026/02/04/niger-military-government-to-sue-french-uranium-giant-over-environment/"],
+ ["AllAfrica, Niger: between the country and Orano, a calmer tone, 24 Feb 2026","https://fr.allafrica.com/stories/202602250122.html"],
+ ["MiningMX (Reuters), Niger doubles stake in Madaouela uranium project, 24 Sep 2026","https://miningmx.com/2026-09-24-niger-doubles-stake-in-madaouela-uranium-project/"],
+ ["Africaguinee, Mamadi Doumbouya orders withdrawal of 'non-compliant' mining permits, May 2025","https://www.africaguinee.com/guinee-mamadi-doumbouya-ordonne-le-retrait-des-permis-miniers-non-conformes/"],
+ ["Guinéenews, Why the state withdrew mining permits from a hundred companies, 22 May 2025","https://guineenews.org/2025/05/22/guinee-pourquoi-letat-a-retire-les-permis-miniers-a-une-centaine-de-societes/"],
+ ["Africa Briefing, Guinea contests $28.9bn bauxite mining claim","https://africabriefing.com/guinea-contests-28-9bn-bauxite-mining-claim/"],
+ ["Guinéenews, Falcon Energy claims $100 million from Guinea at ICSID, 18 Mar 2026","https://guineenews.org/2026/03/18/contentieux-minier-falcon-energy-reclame-100-millions-de-dollars-a-la-guinee-devant-le-cirdi/?amp=1"]
 ];
 
 const COUNTRIES = [
@@ -621,7 +667,7 @@ function renderRail(){
   rail.innerHTML = `<button type="button" data-cc="" aria-pressed="${country===""}">All states <small>${CASES.length}</small></button>` +
     COUNTRIES.map(c=>{const k=CASES.filter(x=>x.cc===c.cc).length; return `<button type="button" data-cc="${c.cc}" class="${k?"":"zero"}" aria-pressed="${country===c.cc}" title="${c.coup}">${c.name} <small>${k||"0 since coup"}</small></button>`}).join("");
 }
-rail.onclick = ev=>{const b=ev.target.closest("button[data-cc]"); if(!b)return; country=b.dataset.cc; renderRail(); renderDocket(); renderStrip();
+rail.onclick = ev=>{const b=ev.target.closest("button[data-cc]"); if(!b)return; country=b.dataset.cc; renderRail(); renderDocket(); renderStrip(); stCC=country; renderSt();
   focusSel.value = country?("cc:"+country):""; selected=null; applyView(); fit(visibleIds())};
 function renderStrip(){
   const cs = CASES.filter(c=>!country||c.cc===country);
@@ -655,6 +701,7 @@ function renderDocket(){
        <dt>State counsel</dt><dd>${c.repR.map(firmLink).join("<br>")||"—"}</dd>
        <dt>Tribunal</dt><dd>${arbs}</dd>
        <dt>ICSID latest</dt><dd>${esc(c.outcome||c.latest||"—")}</dd>
+       <dt>State says</dt><dd>${(typeof ST!=="undefined"?ST:[]).filter(x=>x.cases.includes(c.no)).map(x=>`<span class="kindtag">${x.dl}</span> ${esc(x.t)}`).join("<br>")||"No statement found"} <a href="#statements" style="font-size:.85rem">all statements</a></dd>
       </dl>
       <div class="case-actions"><button class="btn" type="button" data-focus="c_${c.no}">Show in network</button></div></div>
       <ol class="tl">${(c.tl||[]).map(t=>`<li class="${t[2]?"next":""}"><time>${t[0]}</time>${esc(t[1])}</li>`).join("")}</ol>
@@ -808,6 +855,92 @@ function renderReg(){const rows=N.filter(d=>catOf(d)&&(cat==="All"||catOf(d)===c
   document.getElementById("regbody").innerHTML=rows.map(d=>`<tr><td class="name"><span class="tdot" style="background:var(${TYPES[d.type].color})"></span><button type="button" data-go="${d.id}">${esc(d.label)}</button></td><td>${catOf(d)}</td><td class="mono">${[...caseOf[d.id]].map(x=>x.slice(2)).join("<br>")||"—"}</td><td>${esc(d.note)}${d.lev?`<br><em>${esc(d.lev)}</em>`:""}</td><td><span class="conf ${d.conf}">${d.conf}</span></td><td>${sup(d.src)}</td></tr>`).join("")}
 document.getElementById("regbody").addEventListener("click",ev=>{const b=ev.target.closest("button[data-go]"); if(b){focusSel.value=""; goNet(b.dataset.go)}});
 
+
+// ---- respondent-state statements
+// kind: "public" = government statement; "proc" = position taken inside the arbitration (ICSID record); "silence" = documented absence of comment
+const ST = [
+ {d:"2023-08-01",dl:"Aug 2023",cc:"bf",cases:["ARB/24/51"],kind:"public",who:"Ministry of Energy, Mines and Quarries",how:"Letter to Sarama",t:"Tells Sarama its Tankoro 2 permit application failed",
+  sum:"The ministry notified Sarama that its application for the Tankoro 2 exploration permit was unsuccessful, which in effect withdrew a permit the government had granted by letter in November 2021. The notice is known only through Sarama's own disclosures.",conf:"reported",src:[3]},
+ {d:"2023-12-12",dl:"12 Dec 2023",cc:"bf",cases:["ARB(AF)/26/3"],kind:"public",who:"Government of Burkina Faso",how:"Diplomatic note to Libya",t:"Burkina Faso denounces the 1984 convention that created the bank",
+  sum:"By diplomatic note, Burkina Faso ended the 1984 Burkinabè–Libyan convention that set up the joint bank later called BCB. This was the first formal step toward the takeover. One outlet dates it to February 2024.",conf:"reported",src:[47]},
+ {d:"2024-05-22",dl:"22 May 2024",cc:"bf",cases:["ARB(AF)/26/3"],kind:"public",who:"Aboubakar Nacanabo, Minister of Economy and Finance; Council of Ministers chaired by Capt. Ibrahim Traoré",how:"Council of Ministers communiqué",t:"Government nationalises Banque Commerciale du Burkina",
+  sum:"Cabinet adopted a decree nationalising BCB. The minister said the bank had operating difficulties, that the Libyan partner had failed to give the support it needed, and that talks had broken down. He promised staff and customers the bank would keep running and be strengthened.",
+  q:["le partenaire libyen qui n'a pas apporté le soutien attendu","the Libyan partner, which did not provide the expected support"],conf:"verified",src:[46]},
+ {d:"2024-10-01",dl:"Oct 2024",cc:"bf",cases:["ARB/24/51"],kind:"public",who:"Capt. Ibrahim Traoré, head of state",how:"Radio address on the coup's second anniversary",t:"Traoré says some foreign mining permits will be withdrawn",
+  sum:"Traoré said Burkina Faso would withdraw some foreign mining companies' permits so the country could mine more of its own gold. He named no companies. It is the clearest statement of the policy behind the Sarama withdrawal, though not about Sarama directly.",
+  q:["We know how to mine our gold and I don't understand why we're going to let multinationals come and mine it.","(reported in English by Reuters)"],conf:"reported",src:[48]},
+ {d:"2025-11-04",dl:"2023–2026",cc:"bf",cases:["ARB/24/51"],kind:"silence",who:"Government of Burkina Faso",how:"No public comment",t:"No public comment on the Sarama claim",
+  sum:"The press found no public government statement on the Sarama arbitration. Burkina Faso did not respond to Sarama's notice of intent during the 60-day consultation period.",conf:"reported",src:[3,45]},
+ {d:"2026-03-31",dl:"31 Mar 2026",cc:"bf",cases:["ARB/24/51"],kind:"proc",who:"Burkina Faso, through Curtis, Mallet-Prevost",how:"ICSID filing",t:"Contests the tribunal's jurisdiction and the merits",
+  sum:"Burkina Faso filed its counter-memorial on the merits together with a memorial on jurisdiction, so it argues both that the tribunal cannot hear the claim and that the claim fails. The filing is on the ICSID site but has not been summarised in the press.",conf:"verified",src:[1,2]},
+ {d:"2021-05-27",dl:"Mar–May 2021",cc:"ml",cases:["ARB/21/38"],kind:"public",who:"Government of Mali (transitional PM Moctar Ouane)",how:"Permit decision and decree",t:"Mali refuses to renew B2Gold's Menankoto permit, then cancels the grant to a local firm",
+  sum:"Mali turned down the Menankoto permit renewal without giving a reason. A May 2021 decree then cancelled a 24 March decision handing the same area to the Malian company Little Big Mining, again without stated reasons. Mali later issued a new permit to B2Gold under the 2019 code, and the claim was withdrawn.",conf:"reported",src:[34,49]},
+ {d:"2024-10-23",dl:"23 Oct 2024",cc:"ml",cases:["ARB/25/2"],kind:"public",who:"Ministries of Economy and Finance and of Mines",how:"Joint statement",t:"Mali accuses Barrick of breaking its commitments",
+  sum:"The ministries said Barrick had not honoured its agreements, citing environmental, social responsibility and foreign-exchange breaches without detail. They warned of legal consequences and noted that one operating licence expires in early 2026. Reuters reported Mali was seeking at least 300 billion CFA francs in back taxes and dividends.",conf:"reported",src:[50]},
+ {d:"2025-01-11",dl:"11 Jan 2025",cc:"ml",cases:["ARB/25/2"],kind:"public",who:"Government of Mali",how:"Enforcement of a court seizure order",t:"Mali begins seizing gold stocks at Loulo-Gounkoto",
+  sum:"Mali began enforcing a provisional order to seize the gold stored at the complex, which led Barrick to halt production.",conf:"reported",src:[51]},
+ {d:"2025-06-16",dl:"May–Jun 2025",cc:"ml",cases:["ARB/25/2"],kind:"public",who:"Government of Mali",how:"Application to the Bamako commercial court",t:"Mali asks a court to put the mine under state-appointed administration",
+  sum:"On 8 May the government asked the Bamako commercial court to place the complex under provisional administration. In June the court did so for six months, appointing former health minister Soumana Makadji to run it. ICSID was simultaneously being asked by Barrick to block this.",conf:"reported",src:[52]},
+ {d:"2025-11-24",dl:"24 Nov 2025",cc:"ml",cases:["ARB/25/2"],kind:"public",who:"Ministry of Mines",how:"Communiqué",t:"Mines Ministry announces a settlement with Barrick",
+  sum:"The ministry said it had concluded a settlement ending the dispute and called it an 'exit from crisis' agreement that closes a period of conflict. Barrick paid about US$430M, accepted the 2023 Mining Code and withdrew its ICSID claims; Mali dropped charges and returned the mine and seized gold.",
+  q:["accord de sortie de crise","exit-from-crisis agreement"],conf:"reported",src:[53,32]},
+ {d:"2026-10-06",dl:"Oct 2026",cc:"ml",cases:["ARB/26/39"],kind:"silence",who:"Government of Mali",how:"No public comment",t:"No public comment yet on the Sopam Energie claim",
+  sum:"The claim was registered on 6 October 2026. Mali is represented by its Director General of State Litigation, Moussa Kenneye Kodio. No public statement found.",conf:"verified",src:[1]},
+ {d:"2024-06-11",dl:"11 Jun 2024",cc:"ne",cases:["ARB/25/8"],kind:"public",who:"Ministry of Mines",how:"Ministerial note",t:"Niger withdraws Orano's Imouraren permit for failing to start work",
+  sum:"The ministry said Orano had been given three months from 19 March 2024 to start mining work at Imouraren, after a first formal notice in February 2022, and that the permit would otherwise revert to the public domain. Orano said it had reopened the site on 4 June.",conf:"reported",src:[54]},
+ {d:"2024-07-04",dl:"Jul 2024",cc:"ne",cases:["ARB/25/1"],kind:"public",who:"Minister of Mines; Council of Ministers",how:"Letter and three decrees",t:"Niger takes back GoviEx's Madaouela permit",
+  sum:"After the 3 July deadline set by the military government, the minister wrote that the Madaouela permit area was now public domain. Cabinet issued decrees withdrawing the permit and repealing those that granted it. GoviEx said the mining code's withdrawal procedure was not followed.",conf:"reported",src:[55]},
+ {d:"2025-06-19",dl:"19 Jun 2025",cc:"ne",cases:["ARB/25/8","ARB/25/9"],kind:"public",who:"Council of Ministers",how:"Communiqué, via the state news agency ANP",t:"Niger nationalises SOMAÏR, citing Orano's 'irresponsible acts'",
+  sum:"Cabinet transferred all SOMAÏR shares and assets to the state. It accused Orano of pulling French staff without notice, cutting the mine's IT systems on 4 Dec 2024, running disinformation campaigns, taking 86% of output against 9% for the state partner, and abandoning clean-up at the old COMINAK mine. It promised compensation net of rehabilitation costs.",
+  q:["Cette nationalisation va permettre une gestion plus saine et plus durable de la société","This nationalisation will allow healthier and more sustainable management of the company"],conf:"verified",src:[56]},
+ {d:"2025-11-30",dl:"Late Nov 2025",cc:"ne",cases:["ARB/25/8","ARB/25/9"],kind:"public",who:"Gen. Abdourahamane Tiani, head of state",how:"State television",t:"Tiani says Niger will sell its uranium on the open market",
+  sum:"Despite the ICSID order of September 2025 barring any sale of SOMAÏR uranium, Tiani said Niger has the right to sell its natural resources to any buyer.",
+  q:["Niger's legitimate right to dispose of its natural riches to sell them to whoever wants to buy them, under the rules of the market, in complete independence","(reported in English by Reuters)"],conf:"reported",src:[57]},
+ {d:"2025-12-04",dl:"Early Dec 2025",cc:"ne",cases:["ARB/25/8","ARB/25/9"],kind:"public",who:"Alio Daouda, Minister of Justice",how:"Government statement",t:"Niger accuses Orano of radioactive pollution and threatens prosecution",
+  sum:"The minister said 400 barrels of radioactive material had been found near Arlit, with radiation at 7–10 µSv/h against a normal 0.5, and that Orano could face criminal proceedings for 'mass crimes'. Orano said it never operated the site in question.",conf:"reported",src:[57]},
+ {d:"2026-02-04",dl:"Feb 2026",cc:"ne",cases:["ARB/25/8","ARB/25/9"],kind:"public",who:"Government of Niger",how:"Announcement",t:"Niger says it will sue Orano over environmental damage",
+  sum:"The government announced legal action against Orano over alleged environmental harm around its former mines.",conf:"reported",src:[58]},
+ {d:"2026-02-13",dl:"13 Feb 2026",cc:"ne",cases:["ARB/25/8","ARB/25/9"],kind:"public",who:"Gen. Abdourahamane Tiani",how:"National television interview",t:"Tiani offers to send France its share of the uranium",
+  sum:"In a softer tone, Tiani said Niger was ready to send France its share, about 100 tonnes mined at SOMAÏR, while insisting everything produced since the takeover belongs to Niger. He said the state spent over 24 billion CFA francs keeping production going after Orano withdrew. Orano then asked ICSID to suspend the Imouraren case.",conf:"reported",src:[59,1]},
+ {d:"2026-09-02",dl:"2 Sep 2026",cc:"ne",cases:["ARB/25/9"],kind:"proc",who:"Niger, through Audit Duprey Fekl and Cabinet ABBA",how:"ICSID filing",t:"Niger files its defence in the SOMAÏR case",
+  sum:"Niger filed its counter-memorial on the merits. Niger also challenged Orano's appointed arbitrator, Daniel Mainguy (decided Nov 2025).",conf:"verified",src:[1]},
+ {d:"2026-09-23",dl:"23 Sep 2026",cc:"ne",cases:["ARB/25/1"],kind:"public",who:"Ministry of Mines (Col. Abarchi Ousmane signed)",how:"Statement on the new mining convention",t:"Niger signs a new Madaouela deal and doubles its stake",
+  sum:"Niger signed a convention giving Atomic Eagle (ex-GoviEx) 60% and the state 40% of Madaouela, up from 20%. The ministry said it prioritised dialogue and did not disclose the financial terms. Atomic Eagle is to withdraw its ICSID claim.",
+  q:["Niger has prioritized dialogue and negotiation to usher in a new phase based on partnership and development.","(as reported by Reuters)"],conf:"reported",src:[60,26]},
+ {d:"2025-05-08",dl:"8 May 2025",cc:"gn",cases:["ARB/26/3","ARB/25/56","ARB/25/48","ARB/26/13"],kind:"public",who:"Gen. Mamadi Doumbouya, President; Council of Ministers",how:"Council of Ministers",t:"Doumbouya orders withdrawal of permits from non-compliant miners",
+  sum:"The president told the Mines Minister to withdraw permits from companies not complying with the Mining Code, saying contractual commitments and deadlines are 'non-negotiable'. Revocation decrees and orders followed from 9 to 17 May, eventually covering 51 concessions and about a hundred exploration permits, including Axis, Falcon and Nomad.",
+  q:["non négociable","non-negotiable (on respecting commitments and deadlines)"],conf:"reported",src:[61]},
+ {d:"2025-05-22",dl:"22 May 2025",cc:"gn",cases:["ARB/26/3","ARB/25/56","ARB/25/48","ARB/26/13"],kind:"public",who:"Ousmane Gaoual Diallo, government spokesperson; Gen. Amara Camara, Secretary-General of the Presidency",how:"Press conference, Conakry",t:"Government defends the mass revocations as lawful and 'not punitive'",
+  sum:"The spokesperson said most permits were in breach of the Mining Code, citing articles 3, 34, 77, 82 and 88, and that companies were free to sue. Gen. Camara said permits were withdrawn by the same legal instrument that granted them, that the move was about rebuilding and transparency, and that the areas go into a state reserve to benefit all Guineans.",
+  q:["La plupart des permis sont en état de manquement au regard du Code minier … aucun permis n'a été retiré sans justification","Most permits are in breach of the Mining Code … no permit was withdrawn without justification"],conf:"verified",src:[62]},
+ {d:"2025-12-30",dl:"Late 2025",cc:"gn",cases:["ARB/26/3"],kind:"public",who:"Bouna Sylla, Minister of Mines and Geology",how:"Remarks in Conakry",t:"Mines Minister says Guinea will defend itself against Axis",
+  sum:"Sylla said the government acted lawfully and will defend itself firmly. Officials said Axis spent too little, subcontracted much of the work instead of building the industrial capacity the code requires, and had tax-compliance and transparency failings.",
+  q:["Guinea is fully prepared to defend itself.","(as reported in English)"],conf:"reported",src:[63]},
+ {d:"2026-03-18",dl:"Mar 2026",cc:"gn",cases:["ARB/26/13"],kind:"silence",who:"Ministry of Mines and Geology",how:"No response to press",t:"No comment on Falcon's claim",
+  sum:"The ministry did not answer repeated press requests about Falcon's US$100M claim. Falcon says the ministry also ignored its attempts to settle.",conf:"reported",src:[64,19]},
+ {d:"2026-09-25",dl:"25 Sep 2026",cc:"gn",cases:["ARB/26/3"],kind:"proc",who:"Guinea, through DLA Piper",how:"ICSID filing",t:"Guinea asks for jurisdiction to be decided first in the Axis case",
+  sum:"Guinea asked the tribunal to hear its objections to jurisdiction as a preliminary question before the merits, which could end the US$28.9B claim early or delay it.",conf:"verified",src:[1]},
+ {d:"2026-06-26",dl:"2025–2026",cc:"sd",cases:["ARB/24/28"],kind:"proc",who:"Sudan and the Central Bank of Sudan, through Derains & Gharavi",how:"ICSID filings",t:"Sudan contests jurisdiction over the QNB claim",
+  sum:"No public statement found from Sudan or its central bank. In the arbitration, Sudan raised objections to jurisdiction: QNB filed a counter-memorial on jurisdiction with its reply on 26 June 2026.",conf:"verified",src:[1]}
+];
+const KIND = {public:"Public statement",proc:"Position in the arbitration",silence:"No public comment"};
+let stCC = "";
+const stchips = document.getElementById("stchips");
+function renderSt(){
+  const ccs=[...new Set(ST.map(x=>x.cc))];
+  stchips.innerHTML = `<button class="chip" type="button" data-st="" aria-pressed="${stCC===""}">All · ${ST.length}</button>`+ccs.map(cc=>`<button class="chip" type="button" data-st="${cc}" aria-pressed="${stCC===cc}">${CNAME[cc]} · ${ST.filter(x=>x.cc===cc).length}</button>`).join("");
+  const rows = ST.filter(x=>!stCC||x.cc===stCC).sort((a,b)=>ccs.indexOf(a.cc)-ccs.indexOf(b.cc)||a.d.localeCompare(b.d));
+  document.getElementById("stmts").innerHTML = rows.map(x=>`<li class="stmt kind-${x.kind}">
+    <div class="when"><b>${x.dl}</b><span>${CNAME[x.cc]}</span><span class="kindtag">${KIND[x.kind]}</span></div>
+    <div><h3>${esc(x.t)}</h3><p class="who">${esc(x.who)} · ${esc(x.how)}</p>
+     <p>${esc(x.sum)} ${sup(x.src)}</p>
+     ${x.q?`<blockquote>“${esc(x.q[0])}”<i>${esc(x.q[1])}</i></blockquote>`:""}
+     <div class="tags">${x.cases.map(no=>`<button type="button" data-go="c_${no}">${no} · ${esc(shortOf(no))}</button>`).join("")}<span class="conf ${x.conf}">${x.conf}</span></div></div></li>`).join("");
+}
+stchips.onclick = ev=>{const b=ev.target.closest("[data-st]"); if(!b)return; stCC=b.dataset.st; renderSt()};
+document.getElementById("stmts").addEventListener("click",ev=>{const b=ev.target.closest("[data-go]"); if(b) goNet(b.dataset.go)});
+
+renderSt();
 renderRail(); renderStrip(); renderDocket(); renderDesk(); renderReg(); applyView();
 requestAnimationFrame(()=>fit(null));
 const h=location.hash.match(/^#n-([A-Za-z0-9_.~-]+)$/); if(h){const id=Object.keys(byId).find(k=>k.replace(/[^A-Za-z0-9_.~-]/g,"_")===h[1]); if(id) setTimeout(()=>select(id,{center:true}),300)}
