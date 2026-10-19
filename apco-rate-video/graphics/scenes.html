@@ -78,6 +78,8 @@
     display: inline-block; font-weight: 800; font-size: 64px; letter-spacing: -.01em; padding: 18px 30px; border-radius: 20px;
     background: var(--paper); color: var(--ink);
   }
+  .eq { display:flex; align-items:baseline; flex-wrap:wrap; gap:0 18px; font-family:"Inter Display","Inter",sans-serif; font-weight:800; font-size:64px; margin-top:26px; }
+  .eq .op { color: var(--muted); font-weight:700; }
 </style>
 </head>
 <body>
@@ -491,6 +493,121 @@ const SCENES = [
       pop(this.b, t, 0, D - .3);
       pop(this.c19, t, 2.0, Infinity, { dy: 0, scale: .6 });   // "…the morning of October 19th"
       pop(this.c15, t, 5.6, Infinity, { dy: 0, scale: .6 });   // "the deadline to register is October 15th"
+    }
+  },
+
+  /* ---------- Dominion political spending video (JustinVids1.srt) ---------- */
+  {
+    id: 'dom_01_hook', start: 0.1, end: 6.0,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1120px">
+        <div class="kicker">Imagine you had</div>
+        <div class="h1 volt" style="font-size:150px" id="n">$0.00M</div>
+        <div class="h3" id="s" style="margin-top:10px">to spend in Virginia in just <span class="volt">3 months</span></div>
+      </div>`));
+      this.n = this.c.querySelector('#n'); this.s = this.c.querySelector('#s');
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      this.n.textContent = '$' + (3.67 * easeOut(prog(t, .4, 1.6))).toFixed(2) + 'M';
+      pop(this.s, t, 1.6, Infinity, { dy: 24 });
+    }
+  },
+  {
+    id: 'dom_02_teachers', start: 6.0, end: 9.5,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">The math</div>
+        <div class="h2">Pay <span class="volt">212</span> teachers</div>
+        <div class="eq"><span id="e1">$3.67M</span><span class="op" id="e2">÷ 212</span><span style="flex-basis:100%;height:0"></span><span class="op" id="e3">=</span><span class="volt" id="e4" style="font-size:84px">$17,300 each</span></div>
+        <div class="sub" id="f" style="margin-top:14px">≈ 3 months of pay at ~$69K a year</div>
+      </div>`));
+      ['e1','e2','e3','e4','f'].forEach(k => this[k] = this.c.querySelector('#' + k));
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .25, { outDur: .25 });
+      pop(this.e1, t, .35, Infinity, { dy: 20 });
+      pop(this.e2, t, .65, Infinity, { dy: 20 });
+      pop(this.e3, t, .95, Infinity, { dy: 20 });
+      pop(this.e4, t, 1.15, Infinity, { dy: 20, scale: .7 });
+      pop(this.f, t, 1.6, Infinity, { dy: 20 });
+    }
+  },
+  {
+    id: 'dom_03_energy_bills', start: 9.5, end: 12.5,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">The math</div>
+        <div class="h2">Cover energy bills for <span class="volt">6,700</span> households</div>
+        <div class="eq"><span id="e1">$3.67M</span><span class="op" id="e2">÷ 6,700</span><span style="flex-basis:100%;height:0"></span><span class="op" id="e3">=</span><span class="volt" id="e4" style="font-size:84px">$548 each</span></div>
+        <div class="sub" id="f" style="margin-top:14px">≈ 3 months of bills at ~$183 a month</div>
+      </div>`));
+      ['e1','e2','e3','e4','f'].forEach(k => this[k] = this.c.querySelector('#' + k));
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .25, { outDur: .25 });
+      pop(this.e1, t, .35, Infinity, { dy: 20 });
+      pop(this.e2, t, .65, Infinity, { dy: 20 });
+      pop(this.e3, t, .95, Infinity, { dy: 20 });
+      pop(this.e4, t, 1.15, Infinity, { dy: 20, scale: .7 });
+      pop(this.f, t, 1.6, Infinity, { dy: 20 });
+    }
+  },
+  {
+    id: 'dom_04_school_lunches', start: 12.5, end: 15.45,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px">
+        <div class="kicker">The math</div>
+        <div class="h2">School lunches for <span class="volt">~60,000</span> kids</div>
+        <div class="eq"><span id="e1">$3.67M</span><span class="op" id="e2">÷ 60,000</span><span style="flex-basis:100%;height:0"></span><span class="op" id="e3">=</span><span class="volt" id="e4" style="font-size:84px">$61 each</span></div>
+        <div class="sub" id="f" style="margin-top:14px">in school meals per child</div>
+      </div>`));
+      ['e1','e2','e3','e4','f'].forEach(k => this[k] = this.c.querySelector('#' + k));
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .25, { outDur: .25 });
+      pop(this.e1, t, .35, Infinity, { dy: 20 });
+      pop(this.e2, t, .65, Infinity, { dy: 20 });
+      pop(this.e3, t, .95, Infinity, { dy: 20 });
+      pop(this.e4, t, 1.15, Infinity, { dy: 20, scale: .7 });
+      pop(this.f, t, 1.6, Infinity, { dy: 20 });
+    }
+  },
+  {
+    id: 'dom_05_reveal', start: 15.4, end: 22.9,
+    build(st) {
+      this.c = st.appendChild(h(`<div class="card" style="top:1060px;--accent:var(--hot)">
+        <div class="kicker">Instead</div>
+        <div class="h2">Dominion Energy spent</div>
+        <div class="h1 volt" style="font-size:150px;margin:6px 0">$3.67M</div>
+        <div class="h3" id="a">on political contributions</div>
+        <div class="h3 hot" id="b" style="margin-top:6px">in just 3 months</div>
+        <div class="src" style="font-size:24px">Source: Virginia campaign finance reports, Sept. 2026</div>
+      </div>`));
+      this.a = this.c.querySelector('#a'); this.b = this.c.querySelector('#b');
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      pop(this.a, t, 3.4, Infinity, { dy: 24 });   // "on political contributions"
+      pop(this.b, t, 5.2, Infinity, { dy: 24 });   // "within the last three months"
+    }
+  },
+  {
+    id: 'dom_06_contact_lawmakers', start: 49.4, end: 60.2,
+    build(st) {
+      const items = ['Share your concerns', 'Ask how they\'ll protect constituents', 'Urge them to publicly oppose the acquisition'];
+      this.c = st.appendChild(h(`<div class="card" style="top:1000px">
+        <div class="kicker">Take action</div>
+        <div class="h1" style="font-size:88px">Contact your <span class="volt">lawmakers</span></div>
+        ${items.map((x, i) => `<div class="chip" id="i${i}" style="font-size:40px"><span class="num" style="flex:0 0 60px;height:60px;font-size:32px;background:var(--volt);color:var(--ink)">${i + 1}</span>${x}</div>`).join('')}
+        <div class="sub" id="u" style="font-size:28px;margin-top:22px">Find yours: <b style="color:#fff">whosmy.virginiageneralassembly.gov</b></div>
+      </div>`));
+      this.items = items.map((_, i) => this.c.querySelector('#i' + i)); this.u = this.c.querySelector('#u');
+    },
+    update(t, D) {
+      pop(this.c, t, 0, D - .3);
+      [1.6, 4.0, 6.2].forEach((s, i) => pop(this.items[i], t, s, Infinity, { dy: 24, scale: .95 }));  // share · ask · urge
+      pop(this.u, t, 1.0, Infinity, { dy: 16 });
     }
   },
 ];
