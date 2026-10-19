@@ -501,7 +501,6 @@ const SCENES = [
     id: 'dom_01_hook', start: 0.1, end: 6.0,
     build(st) {
       this.c = st.appendChild(h(`<div class="card" style="top:1120px">
-        <div class="kicker">Imagine you had</div>
         <div class="h1 volt" style="font-size:150px" id="n">$0.00M</div>
         <div class="h3" id="s" style="margin-top:10px">to spend in Virginia in just <span class="volt">3 months</span></div>
       </div>`));
@@ -517,7 +516,6 @@ const SCENES = [
     id: 'dom_02_teachers', start: 6.0, end: 9.5,
     build(st) {
       this.c = st.appendChild(h(`<div class="card" style="top:1060px">
-        <div class="kicker">The math</div>
         <div class="h2">Pay <span class="volt">212</span> teachers</div>
         <div class="eq"><span id="e1">$3.67M</span><span class="op" id="e2">÷ 212</span><span style="flex-basis:100%;height:0"></span><span class="op" id="e3">=</span><span class="volt" id="e4" style="font-size:84px">$17,300 each</span></div>
         <div class="sub" id="f" style="margin-top:14px">≈ 3 months of pay at ~$69K a year</div>
@@ -537,7 +535,6 @@ const SCENES = [
     id: 'dom_03_energy_bills', start: 9.5, end: 12.5,
     build(st) {
       this.c = st.appendChild(h(`<div class="card" style="top:1060px">
-        <div class="kicker">The math</div>
         <div class="h2">Cover energy bills for <span class="volt">6,700</span> households</div>
         <div class="eq"><span id="e1">$3.67M</span><span class="op" id="e2">÷ 6,700</span><span style="flex-basis:100%;height:0"></span><span class="op" id="e3">=</span><span class="volt" id="e4" style="font-size:84px">$548 each</span></div>
         <div class="sub" id="f" style="margin-top:14px">≈ 3 months of bills at ~$183 a month</div>
@@ -557,7 +554,6 @@ const SCENES = [
     id: 'dom_04_school_lunches', start: 12.5, end: 15.45,
     build(st) {
       this.c = st.appendChild(h(`<div class="card" style="top:1060px">
-        <div class="kicker">The math</div>
         <div class="h2">School lunches for <span class="volt">~60,000</span> kids</div>
         <div class="eq"><span id="e1">$3.67M</span><span class="op" id="e2">÷ 60,000</span><span style="flex-basis:100%;height:0"></span><span class="op" id="e3">=</span><span class="volt" id="e4" style="font-size:84px">$61 each</span></div>
         <div class="sub" id="f" style="margin-top:14px">in school meals per child</div>
@@ -577,7 +573,6 @@ const SCENES = [
     id: 'dom_05_reveal', start: 15.4, end: 22.9,
     build(st) {
       this.c = st.appendChild(h(`<div class="card" style="top:1060px;--accent:var(--hot)">
-        <div class="kicker">Instead</div>
         <div class="h2">Dominion Energy spent</div>
         <div class="h1 volt" style="font-size:150px;margin:6px 0">$3.67M</div>
         <div class="h3" id="a">on political contributions</div>
@@ -595,19 +590,17 @@ const SCENES = [
   {
     id: 'dom_06_contact_lawmakers', start: 49.4, end: 60.2,
     build(st) {
-      const items = ['Share your concerns', 'Ask how they\'ll protect constituents', 'Urge them to publicly oppose the acquisition'];
-      this.c = st.appendChild(h(`<div class="card" style="top:1000px">
-        <div class="kicker">Take action</div>
+      this.c = st.appendChild(h(`<div class="card" style="top:1100px">
         <div class="h1" style="font-size:88px">Contact your <span class="volt">lawmakers</span></div>
-        ${items.map((x, i) => `<div class="chip" id="i${i}" style="font-size:40px"><span class="num" style="flex:0 0 60px;height:60px;font-size:32px;background:var(--volt);color:var(--ink)">${i + 1}</span>${x}</div>`).join('')}
-        <div class="sub" id="u" style="font-size:28px;margin-top:22px">Find yours: <b style="color:#fff">whosmy.virginiageneralassembly.gov</b></div>
+        <div id="u" style="margin-top:30px"><span class="url" style="font-size:40px;padding:18px 26px">cleanvirginia.org/act/stopthemerger</span></div>
+        <div class="row" id="b" style="margin-top:24px;gap:16px"><span class="emoji" style="font-size:48px">🔗</span><span class="h3 volt">Link in bio</span></div>
       </div>`));
-      this.items = items.map((_, i) => this.c.querySelector('#i' + i)); this.u = this.c.querySelector('#u');
+      this.u = this.c.querySelector('#u'); this.b = this.c.querySelector('#b');
     },
     update(t, D) {
       pop(this.c, t, 0, D - .3);
-      [1.6, 4.0, 6.2].forEach((s, i) => pop(this.items[i], t, s, Infinity, { dy: 24, scale: .95 }));  // share · ask · urge
-      pop(this.u, t, 1.0, Infinity, { dy: 16 });
+      pop(this.u, t, 1.6, Infinity, { dy: 20, scale: .9 });   // "contact them today…"
+      pop(this.b, t, 2.4, Infinity, { dy: 20 });
     }
   },
 ];
