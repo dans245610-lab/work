@@ -1,0 +1,16 @@
+{
+  "name": "recast",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted content repurposing: pull videos from one platform, reformat and brand them, and auto-publish everywhere else.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/*.test.js"
+  },
+  "license": "MIT"
+}
