@@ -89,3 +89,17 @@ See `.env.example`. The most important variables:
 - `RENDER_PRESET`: the x264 preset, `veryfast` by default.
 - `RENDER_RETENTION_DAYS`: published renders are deleted after this many days (14 by default).
 - `MAX_UPLOAD_MB`.
+
+## Clickable demo
+
+`demo/` builds a static demo: the real frontend running against a simulated backend in the browser, with sample videos rendered by Recast's own ffmpeg pipeline. Nothing is uploaded or posted.
+
+```bash
+node --disable-warning=ExperimentalWarning demo/build.mjs   # writes demo/site/ (add --skip-media to reuse rendered samples)
+```
+
+To host `demo/site/` on **Cloudflare Pages** (free, gives you a `*.pages.dev` address):
+Cloudflare dashboard → Workers & Pages → Create → Pages → **Connect to Git** → pick this repository and branch →
+Framework preset *None*, build command *(empty)*, build output directory `recast/demo/site` → Save and Deploy.
+
+The full app can't run on Cloudflare Pages or Workers, because it needs ffmpeg, a writable disk and a long-running worker. Use a container host for it (the Dockerfile works on Render, Railway, Fly.io, or Cloudflare Containers).

@@ -51,7 +51,7 @@ p { margin: 0 0 8px; }
 .page-head .sub { color: var(--muted); margin-top: 3px; }
 .mobile-bar { display: none; }
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: fixed; inset: 0 auto 0 0; width: 250px; z-index: 50; transform: translateX(-100%); transition: transform .2s; }
   .shell.nav-open .sidebar { transform: none; box-shadow: 0 0 0 100vmax rgba(0,0,0,.4); }
   .mobile-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--sidebar); color: #fff; font-weight: 700; position: sticky; top: 0; z-index: 40; }
@@ -71,7 +71,7 @@ p { margin: 0 0 8px; }
 .grid.auto { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .grid.auto-sm { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 @media (max-width: 1100px) { .grid.cols-4 { grid-template-columns: repeat(2, minmax(0,1fr)); } .grid.cols-3 { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 700px) { .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: minmax(0, 1fr); } }
 .divider { height: 1px; background: var(--border); margin: 14px 0; }
 .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
 .empty h3 { color: var(--text); margin-bottom: 6px; }
@@ -242,5 +242,13 @@ table.simple th { font-size: 12px; color: var(--faint); text-transform: uppercas
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 700px) {
   .page-head .right { margin-left: 0; flex-wrap: wrap; }
-  .modal-body .grid.cols-2 { grid-template-columns: 1fr; }
+  .modal-body .grid.cols-2 { grid-template-columns: minmax(0, 1fr); }
 }
+.ellipsis, .grow { min-width: 0; }
+.list-item > * { min-width: 0; }
+.thumb .ic svg, .media-card .poster .ic svg { width: 26px; height: 26px; }
+@media (max-width: 700px) {
+  .list-item { flex-wrap: wrap; padding: 11px 16px; }
+  .list-item > .grow { flex-basis: calc(100% - 70px); }
+}
+.shell > div { min-width: 0; }
